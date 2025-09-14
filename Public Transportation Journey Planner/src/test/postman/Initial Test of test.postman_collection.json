@@ -1,0 +1,40 @@
+{
+	"info": {
+		"_postman_id": "a41d29fc-fe75-4e22-8c7a-f726f0605fb7",
+		"name": "Initial Test of test",
+		"description": "This is an inital test to test how this postman and gitlab test works.\n\nThe idea is that when you post updates on gitlab these postman tests will run automatically and notify you and your team about any fails\n\nThis initial test is to test the \"UserController\". In this method you are basically adding a new user using the API and then a message will be returned to confirm this.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "47507362"
+	},
+	"item": [
+		{
+			"name": "AddFirstUser",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"johndoe\",\r\n    \"email\": \"john@example.com\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"users"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Fruit Manager</title>
+</head>
+<body>
+<h1>Fruit Manager</h1>
+
+<!-- Input box to enter a new fruit -->
+<input type="text" id="itemName" placeholder="Enter fruit name" />
+<button onclick="sendItem()">Add Fruit</button>
+
+<h2>Available Fruits</h2>
+<select id="itemList" size="5" style="width: 200px;"></select>
+
+<script>
+    // Load fruits from backend and fill the listbox
+    function loadItems() {
+        fetch('http://localhost:8080/api/items')
+            .then(response => response.json())
+            .then(data => {
+                const listBox = document.getElementById('itemList');
+                listBox.innerHTML = ''; // Clear existing options
+
+                data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.text = item;
+                    listBox.add(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading items:', error);
+                alert('Failed to load items from server.');
+            });
+    }
+
+    // Send new fruit to backend
+    function sendItem() {
+        const itemName = document.getElementById('itemName').value.trim();
+        if (itemName === '') {
+            alert('Please enter a fruit name.');
+            return;
+        }
+
+        fetch('http://localhost:8080/api/items_post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: itemName })
+        })
+            .then(response => response.text())
+            .then(message => {
+                alert(message);
+                document.getElementById('itemName').value = ''; // Clear input box
+                loadItems(); // Refresh the listbox with updated data
+            })
+            .catch(error => {
+                console.error('Error sending item:', error);
+                alert('Failed to send item to server.');
+            });
+    }
+
+    // Load items on page load
+    window.onload = loadItems;
+</script>
+</body>
+</html>
