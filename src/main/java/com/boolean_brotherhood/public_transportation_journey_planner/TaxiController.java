@@ -1,13 +1,12 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +33,7 @@ public class TaxiController {
      */
     @PostMapping("/nearest-stop")
     public Map<String, Object> getNearestTaxiStop(@RequestBody JsonNode request) {
+        
         double lat = request.get("location").get("latitude").asDouble();
         double lon = request.get("location").get("longitude").asDouble();
 
