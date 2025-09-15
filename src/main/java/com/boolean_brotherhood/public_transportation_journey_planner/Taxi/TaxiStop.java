@@ -7,6 +7,7 @@ import java.util.Objects;
 public class TaxiStop extends Stop {
 
     private String routeNumber; // Taxi stop code/id
+    private String Address;
 
     /**
      * Constructor for stops with explicit company, coordinates, name, and code.
@@ -16,12 +17,15 @@ public class TaxiStop extends Stop {
      * @param stopName display name of the stop
      * @param stopCode stop code/id
      */
-    public TaxiStop(double lat, double lon, String stopName, String stopCode) {
+    public TaxiStop(double lat, double lon, String stopName, String stopCode,String Adr) {
         super("Taxi", lat, lon, stopName,stopCode);
         this.routeNumber =routeNumber ;
+        this.Address = Adr;
     }
 
-
+    public String getAddress(){
+        return this.Address;
+    }
 
     @Override
     public String toString() {

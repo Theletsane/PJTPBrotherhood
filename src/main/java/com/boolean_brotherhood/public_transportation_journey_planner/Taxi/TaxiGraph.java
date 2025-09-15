@@ -12,7 +12,6 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Taxi;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,9 +23,6 @@ import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import org.springframework.boot.SpringApplication;
-
-import com.boolean_brotherhood.public_transportation_journey_planner.PublicTransportationJourneyPlannerApplication;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
 
 public class TaxiGraph {
@@ -36,14 +32,14 @@ public class TaxiGraph {
     private final List<TaxiTrip> taxiTrips = new ArrayList<>();
 
     // CSV file paths
-    private final String TRIPSFILENAME ;
-    private final String taxiStopsFILENAME ;
+    private final String TRIPSFILENAME;
+    private final String taxiStopsFILENAME;
 
-
-    public TaxiGraph(){
+    public TaxiGraph() {
         TRIPSFILENAME = "CapeTownTransitData/trips_output.csv";
-        taxiStopsFILENAME = "CapeTownTransitData/stops_output.csv";
+        taxiStopsFILENAME = "CapeTownTransitData/TaxiStops(09_15_2025).csv";
     }
+
     /**
      * Loads taxi stops and trips from CSV files into the graph.
      */
@@ -110,8 +106,9 @@ public class TaxiGraph {
      * @return List of TaxiStop objects closest to the given coordinates
      */
     public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int maxStops) {
+        // Sort stops by distance from (lat, lon)
         return taxiStops.stream()
-                .sorted((a, b) -> Double.compare(a.getDistanceBetween(lat, lon), b.getDistanceBetween(lat, lon)))
+                .sorted(Comparator.comparingDouble(stop -> stop.getDistanceBetween(lat, lon)))
                 .limit(maxStops)
                 .collect(Collectors.toList());
     }
@@ -127,21 +124,31 @@ public class TaxiGraph {
 
                 // Split on tab (or use "," if comma-separated)
 
-
                 String[] tokens = line.split(",");
-                
-               
-                // skip malformed lines
-                String name = tokens[0];
-                System.out.print(tokens.length);
-                String stopCode = tokens[1];
-                // Type is always Taxi, so we ignore tokens[2]
-                double latitude = Double.parseDouble(tokens[3]);
-                double longitude = Double.parseDouble(tokens[4]);
+                if (tokens.length > 2) {
 
-                TaxiStop stop = new TaxiStop(latitude, longitude, name, stopCode);
-                this.taxiStops.add(stop);
+                    String name = tokens[1].trim();
+                    String stopCode = tokens[0].trim();
+                    double latitude = Double.parseDouble(tokens[2].trim());
+                    double longitude = Double.parseDouble(tokens[3].trim());
+                    String Address = tokens[4];
+                    for (int i = 5; i < tokens.length; i++) {
+                        Address += ", " + tokens[i];
+                    }
+                    System.out.println(Address);
+                    TaxiStop stop = new TaxiStop(latitude, longitude, name, stopCode, Address);
+
+                    // Only add if not already in the list
+                    boolean exists = taxiStops.stream().anyMatch(s -> s.getName().equalsIgnoreCase(name) &&
+                            Double.compare(s.getLatitude(), latitude) == 0 &&
+                            Double.compare(s.getLongitude(), longitude) == 0);
+                    if (!exists) {
+                        this.taxiStops.add(stop);
+                    }
+                }
             }
+            System.out.println("Loaded " + taxiStops.size() + " stops.");
+
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
@@ -222,8 +229,6 @@ public class TaxiGraph {
             return new Result(-1, Collections.emptyList());
         }
 
-
-
         Map<TaxiStop, Integer> distance = new HashMap<>();
         Map<TaxiStop, TaxiStop> previous = new HashMap<>();
         PriorityQueue<TaxiStop> queue = new PriorityQueue<>(Comparator.comparingInt(distance::get));
@@ -236,7 +241,6 @@ public class TaxiGraph {
 
         while (!queue.isEmpty()) {
             TaxiStop current = queue.poll();
-
 
             if (current.equals(end)) {
                 break;
@@ -303,8 +307,6 @@ public class TaxiGraph {
         return null;
     }
 
-
-    
     /**
      * Result container for shortest-duration search.
      */
@@ -336,9 +338,11 @@ public class TaxiGraph {
         }
     }
 
-    public static void main(String[] args) {
-        TaxiGraph g = new TaxiGraph();
-        g.LoadtaxiStops();
-    }
+    /*
+     * public static void main(String[] args) {
+     * TaxiGraph g = new TaxiGraph();
+     * g.LoadtaxiStops();
+     * }
+     */
 
 }

@@ -52,42 +52,6 @@ public class TaxiTrip extends Trip {
         if (roadSegment != null && !roadSegment.isBlank()) this.road.add(roadSegment);
     }
 
-    /**
-     * Reads taxi stops from a CSV file.
-     *
-     * @param filePath Path to the CSV file
-     * @return List of TaxiStop objects
-     */
-    public static List<TaxiStop> loadTaxiStops(String filePath) {
-        List<TaxiStop> taxiStops = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String line;
-
-            while ((line = br.readLine()) != null) {
-                // Split by tab or whitespace
-                String[] parts = line.split("\\s+");
-
-                if (parts.length < 5) {
-                    continue; // skip invalid lines
-                }
-
-                String name = parts[0];       // Stop name
-                String stopCode = parts[1];   // Taxi_code
-                String type = parts[2];       // Taxi
-                double latitude = Double.parseDouble(parts[3]);
-                double longitude = Double.parseDouble(parts[4]);
-
-                TaxiStop stop = new TaxiStop(latitude, longitude, name, stopCode);
-                taxiStops.add(stop);
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading taxi stops: " + e.getMessage());
-        }
-
-        return taxiStops;
-    }
-
     @Override
     public String toString() {
         return String.format("Trip[%s -> %s, duration=%.2fmin, path=%s]",
