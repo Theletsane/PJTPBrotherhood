@@ -61,10 +61,12 @@ public class TaxiController {
         List<TaxiStop> stops = graph.getNearestTaxiStops(lat, lon, max);
         List<Map<String, Object>> response = new ArrayList<>();
         for (TaxiStop stop : stops) {
+            
             response.add(Map.of(
                 "name", stop.getName(),
                 "latitude", stop.getLatitude(),
-                "longitude", stop.getLongitude()
+                "longitude", stop.getLongitude(),
+                "Distance", stop.getDistanceBetween(lat,lon)
             ));
         }
         return response;
