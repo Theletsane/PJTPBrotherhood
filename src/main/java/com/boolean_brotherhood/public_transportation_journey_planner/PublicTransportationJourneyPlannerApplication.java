@@ -10,6 +10,7 @@ public class PublicTransportationJourneyPlannerApplication implements CommandLin
     public static void main(String[] args) {
         SpringApplication.run(PublicTransportationJourneyPlannerApplication.class, args);
     }
+    
 
     @Override
     public void run(String... args) throws Exception {
