@@ -38,7 +38,6 @@ public class TrainGraph {
     private final List<TrainStop> trainStops = new ArrayList<>();
     public List<String> routeNumbers = new ArrayList<>();
     private final List<TrainTrips> trainTrips = new ArrayList<>();
-
     
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
