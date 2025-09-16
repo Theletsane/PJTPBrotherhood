@@ -13,6 +13,7 @@ public class PublicTransportationJourneyPlannerApplication implements CommandLin
     }
 
 
+    
     @Override
     public void run(String... args) throws Exception {
         // This runs after Spring Boot starts
