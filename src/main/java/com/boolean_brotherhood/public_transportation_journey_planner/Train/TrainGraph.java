@@ -12,29 +12,25 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
-import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 public class TrainGraph {
 
 
     // Public Transportation Journey
-    // Planner/src/main/resources/CapeTownTransitData/complete_metrorail_stations.csv
     private final String Complete_Metrorail_Stations;
     private final String summaryTrips ;
 
@@ -43,44 +39,146 @@ public class TrainGraph {
     public List<String> routeNumbers = new ArrayList<>();
     private final List<TrainTrips> trainTrips = new ArrayList<>();
 
+    
+
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
     
     public TrainGraph(){
-        Complete_Metrorail_Stations = "CapeTownTransitData/complete_metrorail_stations.csv";
+        //C:\Users\thele\OneDrive\Desktop\PJTPBrotherhood\src\main\resources\CapeTownTransitData\complete_metrorail_stations.csv
+        Complete_Metrorail_Stations = "CapeTownTransitData/TrainStation.csv";
         summaryTrips = "CapeTownTransitData/train-routes-summary.csv";
     }
 
     /**
-     * Loads all route numbers from the summary CSV and loads the respective trip
-     * schedules.
+     * Finds a train stop by exact name.
+     *
+     * @param stopName Name of the stop
+     * @return TrainStop object or null if not found
      */
-    public void loadRouteNumber() {
+    public TrainStop getStopByName(String stopName) {
+        for (TrainStop stop : trainStops) {
+            if (stop.getName().equalsIgnoreCase(stopName)) {
+                return stop;
+            }
+        }
+        return null;
+    }
+
+
+    /**
+     * Computes the earliest arrival time and path from start to end station given a
+     * start time.
+     *
+     * @param startName Name of the starting station
+     * @param endName   Name of the destination station
+     * @param startTime Departure time
+     * @return Result object containing total minutes and path
+     */
+    public TrainJourney findEarliestArrival(String startName, String endName, LocalTime startTime) {
+        TrainRaptor raptor = new TrainRaptor(this);
+        return raptor.runRaptor(startName,endName,startTime,6);
+
+    }
+
+
+    /**
+     * Retrieves all outgoing trips starting from a specific stop.
+     *
+     * @param stop TrainStop object
+     * @return List of TrainTrips starting from the stop
+     */
+    public List<TrainTrips> getOutgoingTrips(TrainStop stop) {
+        List<TrainTrips> outgoing = new ArrayList<>();
+        for (TrainTrips trip : trainTrips) {
+            if (trip.getDepartureTrainStop().equals(stop)) {
+                outgoing.add(trip);
+            }
+        }
+        return outgoing;
+    }
+
+
+    /**
+     * Gets the nearest train stop to a given set of coordinates.
+     *
+     * @param lat Latitude
+     * @param lon Longitude
+     * @return Nearest TrainStop object
+     */
+    public TrainStop getNearestTrainStop(double lat, double lon) {
+        double minDist = Double.MAX_VALUE;
+        TrainStop nearest = null;
+        for (TrainStop stop : trainStops) {
+            double d = stop.getDistanceBetween(lat, lon);
+            if (d < minDist) {
+                minDist = d;
+                nearest = stop;
+            }
+        }
+        return nearest;
+    }
+
+
+    /**
+     * Returns all train trips loaded in the graph.
+     *
+     * @return List of TrainTrips
+     */
+    public List<TrainTrips> getTrainTrips() {
+        return this.trainTrips;
+    }
+
+
+    /**
+     * Returns all train stops loaded in the graph.
+     *
+     * @return List of TrainStop
+     */
+    public List<TrainStop> getTrainStops() {
+        return this.trainStops;
+    }
+
+
+    /* ===============================================================================================================
+     * Loading Data from CSV FILE. 
+     * @results: loading TrainStops
+     * @results: loading TrainTrips
+    ==================================================================================================================*/
+    /**
+     * Loads train stop data from the CSV file into the trainStops list.
+     */
+    public void loadTrainStops() throws IOException {
         String line;
-        String csvSplitBy = ","; // tab-delimited, change to "," if comma-separated
-        
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(summaryTrips)) {
+
+        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(Complete_Metrorail_Stations)) {
             // skip header line
             br.readLine();
-            int i = 0;
-            while ((line = br.readLine()) != null) {
-                i++;
-                String[] fields = line.split(csvSplitBy);
-                if (i > 0) {
-                    String routeNumber = fields[0].trim();
-                    routeNumbers.add(routeNumber);
-                    String fileTripName = String.format(
-                            "CapeTownTransitData/train-schedules-2014/%s.csv",
-                            routeNumber);
-                            
-                    loadTripsFromCSV(fileTripName, routeNumber);
-                    ////// System.out.println(fileTripName);
-                }
 
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+
+                if (parts.length >= 5) {
+
+                    String name = parts[0].toUpperCase(); // ATHLONE
+                    String code =parts[0].toUpperCase(); // ATL
+                    double lat = Double.parseDouble(parts[1]); // -33.96089
+                    double lon = Double.parseDouble(parts[2]); // 18.501622
+                    String address =  parts[4];
+                    for (int i = 5; i < parts.length; i++) {
+                        address += ", " + parts[i];
+                    }
+
+                    TrainStop stop = new TrainStop("Train", lat, lon, name, code,address);
+
+                    trainStops.add(stop);
+
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
     /**
      * Loads trips from a CSV file for a specific route and populates trainTrips
@@ -90,15 +188,14 @@ public class TrainGraph {
      * @param routeNumber Route identifier
      * @throws IOException if file reading fails
      */
-    public void loadTripsFromCSV(String filePath, String routeNumber) throws IOException {
+    private void loadTripsFromCSV(String filePath, String routeNumber) throws IOException {
         
         try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(filePath)) {
             String headerLine = br.readLine();
-            if (headerLine == null) {
-                throw new IOException("CSV file empty: " + filePath);
-            }
-            String[] stationNames = headerLine.split(",");
 
+            if (headerLine == null) {throw new IOException("CSV file empty: " + filePath);}
+
+            String[] stationNames = headerLine.split(",");
             String line;
             int tripCounter = 1;
             while ((line = br.readLine()) != null) {
@@ -118,10 +215,8 @@ public class TrainGraph {
                     try {
                         LocalTime parsedTime = LocalTime.parse(timeStr, TIME_FORMAT);
 
-                        TrainStop currentStop = this.findStopByName(stationNames[i].trim());
-                        // If the CSV references a station name not in your stops list, currentStop may
-                        // be null.
-                        // Skip creating a trip when either stop is missing.
+                        TrainStop currentStop = this.getStopByName(stationNames[i].trim());
+
                         if (currentStop == null) {
                             // advance prevStop/prevTime to avoid creating invalid edges
                             prevStop = null;
@@ -131,6 +226,7 @@ public class TrainGraph {
 
                         if (prevStop != null && prevTime != null) {
                             long diffMinutes = Duration.between(prevTime, parsedTime).toMinutes();
+                            //System.out.println(prevTime);
                             int duration;
                             if (diffMinutes < 0) {
                                 if (Math.abs(diffMinutes) > 12 * 60) {
@@ -166,272 +262,43 @@ public class TrainGraph {
         }
     }
 
-    /**
-     * Loads train stop data from the CSV file into the trainStops list.
-     */
-    public void loadTrainStops() throws IOException {
-        String line;
 
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(Complete_Metrorail_Stations)) {
+        /**
+     * Loads all route numbers from the summary CSV and loads the respective trip
+     * schedules.
+     */
+    public void LoadTrainTrips() {
+        String line;
+        String csvSplitBy = ","; // tab-delimited, change to "," if comma-separated
+        
+        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(summaryTrips)) {
             // skip header line
             br.readLine();
-
+            int i = 0;
             while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-
-                if (parts.length >= 5) {
-                    String name = parts[0].toUpperCase(); // ATHLONE
-                    String code = parts[1]; // ATL
-                    String type = parts[2]; // Train
-                    double lat = Double.parseDouble(parts[3]); // -33.96089
-                    double lon = Double.parseDouble(parts[4]); // 18.501622
-
-                    TrainStop stop = new TrainStop(type, lat, lon, name, code);
-                    trainStops.add(stop);
+                i++;
+                String[] fields = line.split(csvSplitBy);
+                if (i > 0) {
+                    String routeNumber = fields[0].trim();
+                    routeNumbers.add(routeNumber);
+                    String fileTripName = String.format(
+                            "CapeTownTransitData/train-schedules-2014/%s.csv",
+                            routeNumber);
+                            
+                    this.loadTripsFromCSV(fileTripName, routeNumber);
+                    ////// System.out.println(fileTripName);
                 }
+
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    /**
-     * Generates a 2-3 character ID from a station name by skipping vowels.
-     *
-     * @param name Station name
-     * @return Generated station ID
-     */
-    private String getIDFromName(String name) {
-        String stationName = name;
-        String stationID = "";
+    
+    /* =============================================================================================
+     * Results class to will basically turn into journey class
+      ==============================================================================================*/
 
-        stationID += stationName.charAt(0);
-
-        for (int i = 1; i < stationName.length() && stationID.length() < 3; i++) {
-            char c = stationName.charAt(i);
-            if ("AEIOU".indexOf(Character.toUpperCase(c)) == -1) { // skip vowels
-                stationID += c;
-            }
-        }
-        stationID = stationID.toUpperCase();
-        return stationID;
-
-    }
-
-
-    /**
-     * Finds a train stop by its name.
-     *
-     * @param name Name of the stop
-     * @return TrainStop object or null if not found
-     */
-    private TrainStop findStopByName(String name) {
-        for (TrainStop stop : this.trainStops) {
-
-            if (stop.getName().equalsIgnoreCase(name.trim())) {
-                //// System.out.println(stop);
-                return stop;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Computes the earliest arrival time and path from start to end station given a
-     * start time.
-     *
-     * @param startName Name of the starting station
-     * @param endName   Name of the destination station
-     * @param startTime Departure time
-     * @return Result object containing total minutes and path
-     */
-    public Result findEarliestArrival(String startName, String endName, LocalTime startTime) {
-        TrainStop start = findStopByName(startName);
-        TrainStop end = findStopByName(endName);
-
-        if (start == null || end == null) {
-            //// System.out.println("Start or end stop not found: " + startName + " -> " +
-            //// endName);
-            return new Result(-1, Collections.emptyList());
-        }
-
-        // earliest known arrival times
-        Map<TrainStop, LocalTime> arrivalTimes = new HashMap<>();
-        Map<TrainStop, TrainStop> previous = new HashMap<>();
-        PriorityQueue<TrainStop> pq = new PriorityQueue<>(Comparator.comparing(arrivalTimes::get));
-
-        for (TrainStop stop : trainStops) {
-            arrivalTimes.put(stop, LocalTime.MAX); // "infinity"
-        }
-        arrivalTimes.put(start, startTime);
-        pq.add(start);
-
-        while (!pq.isEmpty()) {
-            TrainStop current = pq.poll();
-            LocalTime currentArrival = arrivalTimes.get(current);
-
-            if (current.equals(end))
-                break; // reached destination
-
-            // Explore all trips leaving from current
-            for (TrainTrips trip : getOutgoingTrips(current)) {
-                LocalTime depTime = trip.getDepartureTime();
-                if (depTime.isBefore(currentArrival)) {
-                    continue; // can’t catch this train, already left
-                }
-
-                LocalTime newArrival = depTime.plusMinutes(trip.getDuration());
-                TrainStop neighbor = trip.getDestinationTrainStop();
-
-                if (newArrival.isBefore(arrivalTimes.get(neighbor))) {
-                    arrivalTimes.put(neighbor, newArrival);
-                    previous.put(neighbor, current);
-                    pq.remove(neighbor);
-                    pq.add(neighbor);
-                }
-            }
-        }
-
-        // reconstruct path
-        List<TrainStop> path = new ArrayList<>();
-        TrainStop step = end;
-        if (previous.get(step) != null || step.equals(start)) {
-            while (step != null) {
-                path.add(step);
-                step = previous.get(step);
-            }
-            Collections.reverse(path);
-        }
-
-        LocalTime arrival = arrivalTimes.get(end);
-        if (arrival.equals(LocalTime.MAX)) {
-            return new Result(-1, Collections.emptyList());
-        } else {
-            int minutes = (int) Duration.between(startTime, arrival).toMinutes();
-            return new Result(minutes, path);
-        }
-    }
-
-    /**
-     * Retrieves all outgoing trips starting from a specific stop.
-     *
-     * @param stop TrainStop object
-     * @return List of TrainTrips starting from the stop
-     */
-    private List<TrainTrips> getOutgoingTrips(TrainStop stop) {
-        List<TrainTrips> outgoing = new ArrayList<>();
-        for (TrainTrips trip : trainTrips) {
-            if (trip.getDepartureTrainStop().equals(stop)) {
-                outgoing.add(trip);
-            }
-        }
-        return outgoing;
-    }
-
-    /**
-     * Gets the nearest train stop to a given set of coordinates.
-     *
-     * @param lat Latitude
-     * @param lon Longitude
-     * @return Nearest TrainStop object
-     */
-    public TrainStop getNearestTrainStop(double lat, double lon) {
-        double minDist = Double.MAX_VALUE;
-        TrainStop nearest = null;
-        for (TrainStop stop : trainStops) {
-            double d = stop.getDistanceBetween(lat, lon);
-            if (d < minDist) {
-                minDist = d;
-                nearest = stop;
-            }
-        }
-        return nearest;
-    }
-
-    /**
-     * Finds a train stop by exact name.
-     *
-     * @param stopName Name of the stop
-     * @return TrainStop object or null if not found
-     */
-    public TrainStop getStopByName(String stopName) {
-        for (TrainStop stop : trainStops) {
-            if (stop.getName().equalsIgnoreCase(stopName)) {
-                return stop;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Returns all train trips loaded in the graph.
-     *
-     * @return List of TrainTrips
-     */
-    public List<TrainTrips> getTrainTrips() {
-        return this.trainTrips;
-    }
-
-    /**
-     * Returns all train stops loaded in the graph.
-     *
-     * @return List of TrainStop
-     */
-    public List<TrainStop> getTrainStops() {
-        return this.trainStops;
-    }
-
-    /**
-     * Returns a list of the closest train stops to given coordinates (up to
-     * maxStops).
-     *
-     * @param lat      Latitude
-     * @param lon      Longitude
-     * @param maxStops Maximum stops to return
-     * @return List of nearest TrainStop objects
-     */
-    public List<TrainStop> getNearestTaxiStops(double lat, double lon, int maxStops) {
-        return this.trainStops.stream()
-                .sorted((a, b) -> Double.compare(a.getDistanceBetween(lat, lon), b.getDistanceBetween(lat, lon)))
-                .limit(maxStops)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Computes earliest arrival times using RAPTOR.
-     *
-     * @param stops         list of all stops
-     * @param source        starting stop
-     * @param departureTime time in minutes from midnight
-     * @param maxRounds     maximum number of rounds / transfers
-     * @return Map of Stop -> earliest arrival time
-     */
-    public Map<TrainStop, Integer> computeRAPTOR(TrainStop source, int departureTime, int maxRounds) {
-        Map<TrainStop, Integer> arrivalTimes = new HashMap<>();
-        for (TrainStop s : trainStops)
-            arrivalTimes.put(s, Integer.MAX_VALUE);
-        arrivalTimes.put(source, departureTime);
-
-        for (int round = 0; round < maxRounds; round++) {
-            boolean updated = false;
-
-            for (TrainStop stop : trainStops) {
-                for (TrainTrips route : stop.getTrainTripsFromStop()) {
-                    int currentTime = arrivalTimes.get(stop);
-                    Stop nextStop = route.getDestinationStop();
-                    int departure = route.getDuration();
-                    if (departure >= currentTime && currentTime + 0 < arrivalTimes.get(nextStop)) {
-                        arrivalTimes.put((TrainStop) nextStop, departure); // simplified, ignores in-vehicle travel
-                        updated = true;
-                    }
-                }
-            }
-
-            if (!updated)
-                break; // no improvements in this round
-        }
-
-        return arrivalTimes;
-    }
 
     /**
      * Result class representing the outcome of earliest arrival calculation.
@@ -443,6 +310,11 @@ public class TrainGraph {
         public Result(int totalMinutes, List<TrainStop> path) {
             this.totalMinutes = totalMinutes;
             this.path = path;
+        }
+
+        public Result(int totalDurationMinutes, Object path2) {
+            this.path = (List<TrainStop>) path2;
+            this.totalMinutes = totalDurationMinutes;
         }
 
         @Override
@@ -461,4 +333,97 @@ public class TrainGraph {
             return sb.toString();
         }
     }
+
+        /**
+     * Simplified RAPTOR Algorithm for earliest arrival in the TrainGraph.
+     * Works in rounds, updating arrival times based on available trips.
+     */
+    public static class TrainRaptor {
+
+        private final TrainGraph trainGraph;
+        private TrainGraph.Result result;
+
+        public TrainRaptor(TrainGraph graph) {
+            this.trainGraph = graph;
+        }
+
+        /**
+         * Runs RAPTOR to compute the earliest arrival path.
+         *
+         * @param sourceName   starting station name
+         * @param targetName   destination station name
+         * @param departureTime desired start time
+         * @param maxRounds    maximum number of rounds to explore
+         * @return TrainGraph.Result object
+         */
+        public TrainJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds) {
+            TrainStop source = trainGraph.getStopByName(sourceName);
+            TrainStop target = trainGraph.getStopByName(targetName);
+
+            if (source == null || target == null) {
+                result = new TrainGraph.Result(-1, Collections.emptyList());
+                return null;
+            }
+
+            Map<TrainStop, LocalTime> bestArrival = new HashMap<>();
+            for (TrainStop stop : trainGraph.getTrainStops()) {
+                bestArrival.put(stop, LocalTime.MAX);
+            }
+            bestArrival.put(source, departureTime);
+
+            // store previous stop *and* trip
+            Map<TrainStop, TrainStop> previousStop = new HashMap<>();
+            Map<TrainStop, TrainTrips> previousTrip = new HashMap<>();
+
+            Set<TrainStop> markedStops = new HashSet<>();
+            markedStops.add(source);
+
+            for (int round = 0; round < maxRounds; round++) {
+                Set<TrainStop> nextMarkedStops = new HashSet<>();
+
+                for (TrainStop marked : markedStops) {
+                    for (TrainTrips trip : trainGraph.getOutgoingTrips(marked)) {
+                        LocalTime depTime = trip.getDepartureTime();
+                        if (depTime.isBefore(bestArrival.get(marked))) continue;
+
+                        LocalTime arrTime = depTime.plusMinutes(trip.getDuration());
+                        TrainStop dest = trip.getDestinationTrainStop();
+
+                        if (arrTime.isBefore(bestArrival.get(dest))) {
+                            bestArrival.put(dest, arrTime);
+                            previousStop.put(dest, marked);
+                            previousTrip.put(dest, trip);
+                            nextMarkedStops.add(dest);
+                        }
+                    }
+                }
+
+                markedStops = nextMarkedStops;
+                if (markedStops.isEmpty()) break;
+            }
+
+            LocalTime arrival = bestArrival.get(target);
+            if (arrival.equals(LocalTime.MAX)) {
+                this.result = new TrainGraph.Result(-1, Collections.emptyList());
+                return null;
+            }
+
+            // Reconstruct trips
+            List<TrainTrips> trips = new ArrayList<>();
+            TrainStop step = target;
+            while (previousStop.containsKey(step)) {
+                TrainTrips trip = previousTrip.get(step);
+                trips.add(trip);
+                step = previousStop.get(step);
+            }
+            Collections.reverse(trips);
+
+            // Build Journey
+            TrainJourney journey = new TrainJourney(source, target, departureTime, arrival, trips);
+            this.result = new TrainGraph.Result((int) journey.getTotalDurationMinutes(), new ArrayList<>(journey.getTrips()));
+            return journey;
+        }
+        
+    }
+
 }

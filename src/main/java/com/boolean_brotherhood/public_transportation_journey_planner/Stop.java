@@ -18,7 +18,7 @@ public class Stop {
     private String type;
     public String stopcode;
     private List<Trip> TRIPS;
-
+    private String address;
 
     /*
      *Creates a constructor using the type of transportation, name of the company, latitude, longitude, stop name, stop code
@@ -29,6 +29,15 @@ public class Stop {
         this.latitude = lat;
         this.name = stopName;
         this.type = type;
+    }
+
+    public Stop(String type, double lat, double lon,String stopName , String stopCode,String address){
+        this.stopcode = stopCode;
+        this.longitude = lon;
+        this.latitude = lat;
+        this.name = stopName;
+        this.type = type;
+        this.address = address;
     }
 
     /*
@@ -48,14 +57,6 @@ public class Stop {
                 this.type = null; // invalid type
         }
     }
-
-
-
-    public Stop(String taxi, double lat, double lon, String stopName) {
-    }
-
-    // Getters
-
 
     /*
      *Returns the name of the stop
@@ -92,12 +93,14 @@ public class Stop {
         return this.stopcode ;
     }
 
+
     public List<Trip> getTripsFromStop(){
         return TRIPS;
     }
 
-
-    //Setters
+    public String getStopAddress(){
+        return this.address;
+    }
 
     /*
      *Sets the stopCode for stop
@@ -105,6 +108,7 @@ public class Stop {
     public void setStopcode( String stopcode) {
         this.stopcode = stopcode;
     }
+
 
     public void addTrip(Trip trip){
         TRIPS.add(trip);
@@ -146,7 +150,6 @@ public class Stop {
                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
-
     }
 
     /*

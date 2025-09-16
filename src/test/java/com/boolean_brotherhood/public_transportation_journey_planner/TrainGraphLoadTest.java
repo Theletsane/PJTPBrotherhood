@@ -78,13 +78,4 @@ class TrainGraphTest {
         assertTrue(result.path.isEmpty(), "No path should be found without trips");
     }
 
-    @Test
-    void testComputeRAPTOREmpty() {
-        // No trips loaded, arrival times should remain infinity
-        TrainStop capeTown = trainGraph.getStopByName("CAPE TOWN");
-        Map<TrainStop, Integer> arrivalTimes = trainGraph.computeRAPTOR(capeTown, 480, 2); // 8:00 = 480min
-
-        assertNotNull(arrivalTimes);
-        assertEquals(480, arrivalTimes.get(capeTown).intValue(), "Source should keep its own departure time");
-    }
 }

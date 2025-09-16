@@ -11,8 +11,8 @@ public class TrainStop extends Stop {
 
     private List<TrainTrips> trainTRIPS = new ArrayList<>();
     
-    public TrainStop(String type, double lat, double lon,String name, String stopCode) {
-        super("Train", lat, lon, name, stopCode);
+    public TrainStop(String type, double lat, double lon,String name, String stopCode,String Address) {
+        super("Train", lat, lon, name, stopCode,Address);
     }
 
 

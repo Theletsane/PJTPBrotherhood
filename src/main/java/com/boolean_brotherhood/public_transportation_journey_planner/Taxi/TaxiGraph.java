@@ -135,7 +135,6 @@ public class TaxiGraph {
                     for (int i = 5; i < tokens.length; i++) {
                         Address += ", " + tokens[i];
                     }
-                    System.out.println(Address);
                     TaxiStop stop = new TaxiStop(latitude, longitude, name, stopCode, Address);
 
                     // Only add if not already in the list

@@ -1,10 +1,10 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
-
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 /**
  * Train-specific Trip that carries some extra metadata.
@@ -73,11 +73,13 @@ public class TrainTrips extends Trip {
         return departureTime;
     }
 
+    
     @Override
     public String toString() {
         String meta = "";
         if (routeNumber != null) meta += "[" + routeNumber + "] ";
         if (tripID != null) meta += "#" + tripID + " ";
+        if (departureTime != null) meta += "Departure time "+ departureTime+" ";
         return meta + super.toString();
     }
 }

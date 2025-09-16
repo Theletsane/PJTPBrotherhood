@@ -152,7 +152,7 @@ public class Graph {
     public void LoadTrainData() throws IOException {
         System.out.println("Loading train data...");
         trainGraph.loadTrainStops();
-        trainGraph.loadRouteNumber();
+        trainGraph.LoadTrainTrips();
         System.out.printf("TrainGraph loaded with: %d stops, %d trips\n", trainGraph.getTrainStops().size(), trainGraph.getTrainTrips().size());
     }
 

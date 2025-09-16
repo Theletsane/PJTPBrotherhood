@@ -28,10 +28,10 @@ public class MyFileLoader {
     public static BufferedReader getBufferedReaderFromResource(String resourcePath) {
         InputStream inputStream = MyFileLoader.class
                 .getClassLoader()
-                .getResourceAsStream(resourcePath);
-
+                .getResourceAsStream(resourcePath); 
         if (inputStream == null) {
             throw new IllegalArgumentException("Resource not found: " + resourcePath);
+
         }
 
         return new BufferedReader(new InputStreamReader(inputStream));
