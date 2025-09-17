@@ -38,12 +38,12 @@ public class TrainGraph {
     private final List<TrainStop> trainStops = new ArrayList<>();
     public List<String> routeNumbers = new ArrayList<>();
     private final List<TrainTrips> trainTrips = new ArrayList<>();
+
     
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
     
     public TrainGraph(){
-        //C:\Users\thele\OneDrive\Desktop\PJTPBrotherhood\src\main\resources\CapeTownTransitData\complete_metrorail_stations.csv
         Complete_Metrorail_Stations = "CapeTownTransitData/TrainStation.csv";
         summaryTrips = "CapeTownTransitData/train-routes-summary.csv";
     }

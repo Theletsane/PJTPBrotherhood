@@ -49,7 +49,6 @@ public class TrainController {
         }
         return stops;
     }
-    
 
     /** Get a single stop by name */
     @GetMapping("/stops/{name}")
