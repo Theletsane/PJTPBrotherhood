@@ -2,12 +2,24 @@ package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.IOException;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.*;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -37,6 +49,7 @@ public class TrainController {
         }
         return stops;
     }
+    
 
     /** Get a single stop by name */
     @GetMapping("/stops/{name}")
