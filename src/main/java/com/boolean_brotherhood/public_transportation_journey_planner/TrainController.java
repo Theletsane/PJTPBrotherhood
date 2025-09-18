@@ -84,16 +84,26 @@ public class TrainController {
         response.put("to", journey.getDestination().getName());
         response.put("departure", journey.getDepartureTime().toString());
         response.put("arrival", journey.getArrivalTime().toString());
+        response.put("durationMinutes", journey.getTotalDurationMinutes());
         response.put("transfers", journey.getNumberOfTransfers());
 
-        List<String> path = new ArrayList<>();
+        // Full trip breakdown
+        List<Map<String, Object>> tripDetails = new ArrayList<>();
         for (TrainTrips trip : journey.getTrips()) {
-            path.add(trip.getDestinationTrainStop().getName());
+            Map<String, Object> tripMap = new HashMap<>();
+            tripMap.put("tripId", trip.getTripID());
+            tripMap.put("route", trip.getRouteNumber());
+            tripMap.put("from", trip.getDepartureTrainStop().getName());
+            tripMap.put("to", trip.getDestinationTrainStop().getName());
+            tripMap.put("departure", trip.getDepartureTime().toString());
+            tripMap.put("durationMinutes", trip.getDuration());
+            tripDetails.add(tripMap);
         }
-        response.put("path", path);
+        response.put("trips", tripDetails);
 
         return response;
     }
+
 
     /** Get all trips departing from a stop */
     @GetMapping("/stops/{name}/trips")
