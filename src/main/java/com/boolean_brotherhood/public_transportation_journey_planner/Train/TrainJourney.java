@@ -46,8 +46,16 @@ public class TrainJourney {
     }
 
     public int getNumberOfTransfers() {
-        // transfers = trips - 1
-        return Math.max(0, trips.size() - 1);
+        if (trips.isEmpty()) return 0;
+        int transfers = 0;
+        String lastRoute = trips.get(0).getRouteNumber();
+        for (int i = 1; i < trips.size(); i++) {
+            if (!trips.get(i).getRouteNumber().equals(lastRoute)) {
+                transfers++;
+                lastRoute = trips.get(i).getRouteNumber();
+            }
+        }
+        return transfers;
     }
 
     public long getTotalDurationMinutes() {
@@ -58,21 +66,22 @@ public class TrainJourney {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("Journey from ").append(source.getName())
-          .append(" to ").append(destination.getName()).append("\n");
+        .append(" to ").append(destination.getName()).append("\n");
         sb.append("Departure: ").append(departureTime)
-          .append(" | Arrival: ").append(arrivalTime)
-          .append(" | Duration: ").append(getTotalDurationMinutes()).append(" minutes\n");
+        .append(" | Arrival: ").append(arrivalTime)
+        .append(" | Duration: ").append(getTotalDurationMinutes()).append(" minutes\n");
         sb.append("Transfers: ").append(getNumberOfTransfers()).append("\n");
         sb.append("---- Trips ----\n");
 
         for (int i = 0; i < trips.size(); i++) {
             TrainTrips trip = trips.get(i);
-            sb.append(i + 1).append(". ")
-              .append(trip.getDepartureTrainStop().getName())
-              .append(" -> ").append(trip.getDestinationTrainStop().getName())
-              .append(" | Dep: ").append(trip.getDepartureTime())
-              .append(" | Dur: ").append(trip.getDuration()).append(" min\n");
+            sb.append(i + 1).append(". [").append(trip.getRouteNumber()).append("] ");
+            sb.append(trip.getDepartureTrainStop().getName())
+            .append(" -> ").append(trip.getDestinationTrainStop().getName())
+            .append(" | Dep: ").append(trip.getDepartureTime())
+            .append(" | Dur: ").append(trip.getDuration()).append(" min\n");
         }
         return sb.toString();
     }
+
 }

@@ -238,8 +238,14 @@ public class TrainGraph {
                             }
                             if (duration <= 0)
                                 duration = 1;
+                            String dayType;
+                            if(times[1].split(" ").length>1){
+                                dayType = times[1].split(" ")[0];
+                            }else{
+                                dayType = times[1].trim();
+                    }
 
-                            TrainTrips trip = new TrainTrips(prevStop, currentStop, Trip.DayType.WEEKDAY);
+                            TrainTrips trip = new TrainTrips(prevStop, currentStop, Trip.DayType.parseDayType(dayType));
                             trip.setDuration(duration); // store scheduled duration
                             trip.setDepartureTime(prevTime); // <-- IMPORTANT: set departure time
                             trip.setRouteNumber(routeNumber);
@@ -424,5 +430,8 @@ public class TrainGraph {
         }
         
     }
+
+
+
 
 }

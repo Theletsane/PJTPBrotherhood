@@ -66,16 +66,22 @@ public class TrainController {
         return stopMap;
     }
 
-    /** Plan a journey using RAPTOR */
+    /** Plan a journey using RAPTOR with mini trips and full journey summary */
     @GetMapping("/journey")
     public Map<String, Object> planJourney(
             @RequestParam String from,
             @RequestParam String to,
             @RequestParam String time
     ) {
-        LocalTime departureTime = LocalTime.parse(time);
+        LocalTime departureTime;
+        try {
+            departureTime = LocalTime.parse(time);
+        } catch (Exception e) {
+            return Map.of("error", "Invalid time format. Use HH:mm");
+        }
+
         TrainJourney journey = trainGraph.findEarliestArrival(from, to, departureTime);
-        if (journey == null) {
+        if (journey == null || journey.getTrips().isEmpty()) {
             return Map.of("error", "No journey found");
         }
 
@@ -87,22 +93,32 @@ public class TrainController {
         response.put("durationMinutes", journey.getTotalDurationMinutes());
         response.put("transfers", journey.getNumberOfTransfers());
 
-        // Full trip breakdown
-        List<Map<String, Object>> tripDetails = new ArrayList<>();
+        // Mini trips: each leg between stops
+        List<Map<String, Object>> miniTrips = new ArrayList<>();
         for (TrainTrips trip : journey.getTrips()) {
-            Map<String, Object> tripMap = new HashMap<>();
-            tripMap.put("tripId", trip.getTripID());
-            tripMap.put("route", trip.getRouteNumber());
-            tripMap.put("from", trip.getDepartureTrainStop().getName());
-            tripMap.put("to", trip.getDestinationTrainStop().getName());
-            tripMap.put("departure", trip.getDepartureTime().toString());
-            tripMap.put("durationMinutes", trip.getDuration());
-            tripDetails.add(tripMap);
+            Map<String, Object> miniTripMap = new HashMap<>();
+            miniTripMap.put("tripId", trip.getTripID());
+            miniTripMap.put("route", trip.getRouteNumber());
+            miniTripMap.put("from", trip.getDepartureTrainStop().getName());
+            miniTripMap.put("to", trip.getDestinationTrainStop().getName());
+            miniTripMap.put("departure", trip.getDepartureTime() != null ? trip.getDepartureTime().toString() : "N/A");
+            miniTripMap.put("durationMinutes", trip.getDuration());
+            miniTrips.add(miniTripMap);
         }
-        response.put("trips", tripDetails);
+        response.put("miniTrips", miniTrips);
+
+        // Full journey summary
+        Map<String, Object> fullJourney = new HashMap<>();
+        fullJourney.put("totalDurationMinutes", journey.getTotalDurationMinutes());
+        fullJourney.put("totalTransfers", journey.getNumberOfTransfers());
+        fullJourney.put("path", journey.getTrips().stream()
+                .map(t -> t.getDepartureTrainStop().getName() + " -> " + t.getDestinationTrainStop().getName())
+                .toList());
+        response.put("fullJourney", fullJourney);
 
         return response;
     }
+
 
 
     /** Get all trips departing from a stop */
