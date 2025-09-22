@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityBusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityTrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
@@ -30,7 +30,7 @@ public class Graph {
 
     private final TaxiGraph taxiGraph;
     private final TrainGraph trainGraph;
-    private final MyCityBusGraph busGraph;
+    private final MyCitiBusGraph busGraph;
 
     // Walking assumptions
     private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5;   // 500m max
@@ -42,7 +42,7 @@ public class Graph {
 
         this.taxiGraph = new TaxiGraph();
         this.trainGraph = new TrainGraph();
-        this.busGraph   = new MyCityBusGraph();
+        this.busGraph   = new MyCitiBusGraph();
     }
 
     
@@ -70,8 +70,8 @@ public class Graph {
         List<TrainStop> trainStops = trainGraph.getTrainStops();
         List<TrainTrips> trainTrips = trainGraph.getTrainTrips();
 
-        List<MyCityStop> busStops = busGraph.getMyCityStops();
-        List<MyCityTrip> busTrips = busGraph.getMyCityTrips();
+        List<MyCitiStop> busStops = busGraph.getMyCitiStops();
+        List<MyCitiTrip> busTrips = busGraph.getMyCitiTrips();
 
         // Add all stops (we keep original stop objects, not copies)
         totalStops.addAll(taxiStops);
@@ -79,7 +79,7 @@ public class Graph {
         totalStops.addAll(busStops);
 
         // Add all trips to unified list
-        // Note: TrainTrips, MyCityTrip and TaxiTrip are subclasses of Trip
+        // Note: TrainTrips, MyCitiTrip and TaxiTrip are subclasses of Trip
         totalTrips.addAll(taxiTrips);
         totalTrips.addAll(trainTrips);
         totalTrips.addAll(busTrips);
@@ -137,7 +137,7 @@ public class Graph {
         return this.trainGraph;
     }  
 
-    public MyCityBusGraph getMyCityBusGraph(){
+    public MyCitiBusGraph getMyCitiBusGraph(){
         return this.busGraph;
     }
 

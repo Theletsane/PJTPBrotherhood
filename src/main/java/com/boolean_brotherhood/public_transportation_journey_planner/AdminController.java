@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
+
 @RestController
 @RequestMapping("/api/admin")
 @CrossOrigin(origins = "*")
@@ -30,13 +32,13 @@ public class AdminController {
 
     private final TrainController trainController;
     private final TaxiController taxiController;
-    private final MyCityBusController busController;
+    private final MyCitiBusController busController;
 
     @Autowired
     public AdminController(
             TrainController trainController,
             TaxiController taxiController,
-            MyCityBusController busController
+            MyCitiBusController busController
     ) {
         this.trainController = trainController;
         this.taxiController = taxiController;
@@ -111,4 +113,10 @@ public class AdminController {
         metrics.put("bus", busController.getMetrics());
         return metrics;
     }
+    
+    @GetMapping("/GetFileInUse")
+    public Map<String, String> getFilesInUse() {
+        return DataFilesRegistry.getUsageLogs();
+    }
+
 }

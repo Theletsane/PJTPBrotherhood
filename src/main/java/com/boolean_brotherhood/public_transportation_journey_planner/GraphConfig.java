@@ -3,7 +3,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
 
@@ -24,8 +24,8 @@ public class GraphConfig {
     }
 
     @Bean
-    public MyCityBusGraph myCityBusGraph(Graph graph) {
-        return graph.getMyCityBusGraph();
+    public MyCitiBusGraph MyCitiBusGraph(Graph graph) {
+        return graph.getMyCitiBusGraph();
     }
 
     @Bean

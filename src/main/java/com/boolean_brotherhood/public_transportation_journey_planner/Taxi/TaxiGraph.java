@@ -24,10 +24,11 @@ import java.util.PriorityQueue;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
-public class TaxiGraph {
+public final class TaxiGraph {
 
     // Data structures
     private final List<TaxiStop> taxiStops = new ArrayList<>();
@@ -44,8 +45,9 @@ public class TaxiGraph {
     private final String TAXISTOPFILENAME;
 
     public TaxiGraph() {
-        TRIPSFILENAME     = "CapeTownTransitData/taxi-routes.csv"         ;
-        TAXISTOPFILENAME = "CapeTownTransitData/TaxiStops(09_15_2025).csv";
+        String usedBy    = this.getClass().getSimpleName();
+        TRIPSFILENAME    = DataFilesRegistry.getFile("TAXI_TRIPS",usedBy);
+        TAXISTOPFILENAME = DataFilesRegistry.getFile("TAXI_STOPS",usedBy);
         this.loadData();
     }
 

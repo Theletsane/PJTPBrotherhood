@@ -1,6 +1,7 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.util.ArrayList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -11,6 +12,7 @@ import java.util.Objects;
 public abstract class Stop {
 
     private String name;
+    private String companyName;
     private double latitude;
     private double longitude;
     private String stopCode;

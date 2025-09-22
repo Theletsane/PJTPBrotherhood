@@ -25,6 +25,11 @@ public class Trip {
         this.dayType = dayType;
     }
 
+    public Trip(Stop from, Stop to){
+        this.departureStop = from;
+        this.destinationStop = to;
+    }
+
     public Trip(Stop from, Stop to, DayType dayType) {
         this(from, to, 0, dayType);
     }
@@ -100,5 +105,10 @@ public class Trip {
 
             throw new IllegalArgumentException("Unknown day type: " + raw);
         }
+
     }
+
+
+
+
 }
