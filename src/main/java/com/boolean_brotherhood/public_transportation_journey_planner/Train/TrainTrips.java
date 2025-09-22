@@ -1,38 +1,29 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
-
 /**
- * Train-specific Trip that carries some extra metadata.
- * NOTE: Uses Trip.DayType (do not redeclare a DayType enum here).
+ * Train-specific Trip.
  */
 public class TrainTrips extends Trip {
 
     private String tripID;
-    private String direction;     // e.g., "SALT RIVER → WELLINGTON"
-    private String routeCode;     // optional short code
-    private String routeNumber;   // e.g., "S9"
-    private String tripNumber;    // e.g., "1", "2", ...
+    private String direction;       // "SALT RIVER → WELLINGTON"
+    private String routeCode;       // "Metrorail Central Line"
+    private String routeNumber;     // e.g., "S9"
+    private String tripNumber;      // e.g., "1", "2"
     private List<String> majorStations = new ArrayList<>();
-    private LocalTime departureTime;
 
-    // Keep references as TrainStop for convenience, while Trip stores them as Stop
-    private TrainStop departureStop;
-    private TrainStop destinationStop;
-
-    public TrainTrips(TrainStop from, TrainStop to, DayType dayType) {
-        super(from, to, dayType);   //
-        this.departureStop = from;
-        this.destinationStop = to;
+    public TrainTrips(TrainStop from, TrainStop to, DayType dayType, LocalTime departureTime) {
+        super(from, to, dayType);
+        setMode("Train");
+        setDepartureTime(departureTime);
     }
 
-    // ---------------------------
-    // Getters / Setters
-    // ---------------------------
+    // Extra metadata
     public String getTripID() { return tripID; }
     public void setTripID(String tripID) { this.tripID = tripID; }
 
@@ -49,37 +40,19 @@ public class TrainTrips extends Trip {
     public void setTripNumber(String tripNumber) { this.tripNumber = tripNumber; }
 
     public List<String> getMajorStations() { return majorStations; }
-    public void setMajorStations(List<String> majorStations) {
-        this.majorStations = (majorStations == null) ? new ArrayList<>() : majorStations;
-    }
+    public void addMajorStation(String station) { this.majorStations.add(station); }
 
-    public TrainStop getDepartureTrainStop() { return departureStop; }
-    public TrainStop getDestinationTrainStop() { return destinationStop; }
+    // Convenience casts
+    public TrainStop getDepartureTrainStop() { return (TrainStop) getDepartureStop(); }
+    public TrainStop getDestinationTrainStop() { return (TrainStop) getDestinationStop(); }
 
-    public void setDepartureTrainStop(TrainStop s) {
-        this.departureStop = s;
-        setDepartureStop(s); // keep Trip's field in sync
-    }
-    public void setDestinationTrainStop(TrainStop s) {
-        this.destinationStop = s;
-        setDestinationStop(s); // keep Trip's field in sync
-    }
-
-    public void setDepartureTime(LocalTime departureTime) {
-        this.departureTime = departureTime;
-    }
-
-    public LocalTime getDepartureTime() {
-        return departureTime;
-    }
-
-    
     @Override
     public String toString() {
-        String meta = "";
-        if (routeNumber != null) meta += "[" + routeNumber + "] ";
-        if (tripID != null) meta += "#" + tripID + " ";
-        if (departureTime != null) meta += "Departure time "+ departureTime+" ";
-        return meta + super.toString();
+        return String.format("TrainTrip[%s -> %s, dep=%s, route=%s, id=%s]",
+                getDepartureStop().getName(),
+                getDestinationStop().getName(),
+                getDepartureTime(),
+                routeNumber,
+                tripID);
     }
 }

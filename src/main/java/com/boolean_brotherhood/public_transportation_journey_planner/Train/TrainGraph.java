@@ -23,8 +23,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
+
+
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 public class TrainGraph {
@@ -39,6 +45,14 @@ public class TrainGraph {
     public List<String> routeNumbers = new ArrayList<>();
     private final List<TrainTrips> trainTrips = new ArrayList<>();
 
+    private long stopLoadTimeMs = 0;
+    private long tripLoadTimeMs = 0;
+    private long lastRaptorLatencyMs = -1; // -1 means no query yet
+
+
+    // Call this after each RAPTOR query
+    public void setLastRaptorLatency(long ms) { this.lastRaptorLatencyMs = ms; }
+
     
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
@@ -47,6 +61,54 @@ public class TrainGraph {
         Complete_Metrorail_Stations = "CapeTownTransitData/TrainStation.csv";
         summaryTrips = "CapeTownTransitData/train-routes-summary.csv";
     }
+
+        // call these in main/controller after loading
+    public void setStopLoadTime(long ms) { this.stopLoadTimeMs = ms; }
+    public void setTripLoadTime(long ms) { this.tripLoadTimeMs = ms; }
+
+    public Map<String, Object> getMetrics() {
+        Map<String, Object> metrics = new HashMap<>();
+
+        // Count
+        int stopCount = getTrainStops().size();
+        int tripCount = getTrainTrips().size();
+        int routeCount = routeNumbers.size();
+
+        // Estimate memory usage of stops
+        long stopMemory = 0;
+        for (TrainStop stop : getTrainStops()) {
+            stopMemory += 64; // object overhead
+            stopMemory += stop.getName().length() * 2;
+            stopMemory += stop.getStopCode().length() * 2;
+            stopMemory += stop.getAddress().length() * 2;
+        }
+
+        // Estimate memory usage of trips
+        long tripMemory = 0;
+        for (TrainTrips trip : getTrainTrips()) {
+            tripMemory += 128; // object overhead
+            if (trip.getTripID() != null) tripMemory += trip.getTripID().length() * 2;
+            if (trip.getRouteNumber() != null) tripMemory += trip.getRouteNumber().length() * 2;
+        }
+
+        // JVM memory
+        long usedJvmMem = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+
+        // Put results
+        metrics.put("stopsLoaded", stopCount);
+        metrics.put("tripsLoaded", tripCount);
+        metrics.put("routesLoaded", routeCount);
+        metrics.put("stopLoadTimeMs", stopLoadTimeMs);
+        metrics.put("tripLoadTimeMs", tripLoadTimeMs);
+        metrics.put("stopMemoryBytes", stopMemory);
+        metrics.put("tripMemoryBytes", tripMemory);
+        metrics.put("totalEstimatedDataBytes", stopMemory + tripMemory);
+        metrics.put("jvmUsedBytes", usedJvmMem);
+        metrics.put("lastRaptorLatencyMs", lastRaptorLatencyMs);
+
+        return metrics;
+    }
+
 
     /**
      * Finds a train stop by exact name.
@@ -62,7 +124,6 @@ public class TrainGraph {
         }
         return null;
     }
-
 
     /**
      * Computes the earliest arrival time and path from start to end station given a
@@ -108,7 +169,7 @@ public class TrainGraph {
         double minDist = Double.MAX_VALUE;
         TrainStop nearest = null;
         for (TrainStop stop : trainStops) {
-            double d = stop.getDistanceBetween(lat, lon);
+            double d = stop.distanceTo(lat, lon);
             if (d < minDist) {
                 minDist = d;
                 nearest = stop;
@@ -167,7 +228,7 @@ public class TrainGraph {
                         address += ", " + parts[i];
                     }
 
-                    TrainStop stop = new TrainStop("Train", lat, lon, name, code,address);
+                    TrainStop stop = new TrainStop(name, lat, lon, code,address);
 
                     trainStops.add(stop);
 
@@ -245,9 +306,8 @@ public class TrainGraph {
                                 dayType = times[1].trim();
                     }
 
-                            TrainTrips trip = new TrainTrips(prevStop, currentStop, Trip.DayType.parseDayType(dayType));
+                            TrainTrips trip = new TrainTrips(prevStop, currentStop, Trip.DayType.parseDayType(dayType),prevTime);
                             trip.setDuration(duration); // store scheduled duration
-                            trip.setDepartureTime(prevTime); // <-- IMPORTANT: set departure time
                             trip.setRouteNumber(routeNumber);
                             trip.setTripID(routeNumber + "-T" + tripCounter++);
                             trainTrips.add(trip);
@@ -362,6 +422,7 @@ public class TrainGraph {
          * @return TrainGraph.Result object
          */
         public TrainJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds) {
+            long start = System.currentTimeMillis();
             TrainStop source = trainGraph.getStopByName(sourceName);
             TrainStop target = trainGraph.getStopByName(targetName);
 
@@ -426,9 +487,32 @@ public class TrainGraph {
             // Build Journey
             TrainJourney journey = new TrainJourney(source, target, departureTime, arrival, trips);
             this.result = new TrainGraph.Result((int) journey.getTotalDurationMinutes(), new ArrayList<>(journey.getTrips()));
+
+            long end = System.currentTimeMillis();
+            trainGraph.setLastRaptorLatency(end - start);
+
             return journey;
         }
         
+    }
+
+
+    // (keep all your existing code here …)
+
+    /* ================================================================================================
+     * Metrics Printer
+     * ================================================================================================ */
+    public void printMetrics(long stopLoadTimeMs, long tripLoadTimeMs) {
+        System.out.println("\n=== TrainGraph Metrics ===");
+        System.out.println("Stops loaded:   " + getTrainStops().size());
+        System.out.println("Trips loaded:   " + getTrainTrips().size());
+        System.out.println("Routes loaded:  " + routeNumbers.size());
+        System.out.println("Stop load time: " + stopLoadTimeMs + " ms");
+        System.out.println("Trip load time: " + tripLoadTimeMs + " ms");
+
+        // optional: memory usage
+        long usedMem = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024);
+        System.out.println("Approx. memory usage: " + usedMem + " MB");
     }
 
 

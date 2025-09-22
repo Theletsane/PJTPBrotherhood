@@ -11,6 +11,7 @@
 
 package com.boolean_brotherhood.public_transportation_journey_planner.Taxi;
 
+import java.awt.geom.Ellipse2D;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
+import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 public class TaxiGraph {
 
@@ -31,13 +33,20 @@ public class TaxiGraph {
     private final List<TaxiStop> taxiStops = new ArrayList<>();
     private final List<TaxiTrip> taxiTrips = new ArrayList<>();
 
+     // Metrics fields
+    private long stopsLoadTimeMs = 0;
+    private long tripsLoadTimeMs = 0;
+    private int malformedStopLines = 0;
+    private int missingTripStops = 0;
+
     // CSV file paths
     private final String TRIPSFILENAME;
-    private final String taxiStopsFILENAME;
+    private final String TAXISTOPFILENAME;
 
     public TaxiGraph() {
-        TRIPSFILENAME = "CapeTownTransitData/trips_output.csv";
-        taxiStopsFILENAME = "CapeTownTransitData/TaxiStops(09_15_2025).csv";
+        TRIPSFILENAME     = "CapeTownTransitData/taxi-routes.csv"         ;
+        TAXISTOPFILENAME = "CapeTownTransitData/TaxiStops(09_15_2025).csv";
+        this.loadData();
     }
 
     /**
@@ -45,7 +54,7 @@ public class TaxiGraph {
      */
     public void loadData() {
         this.LoadtaxiStops();
-        this.loadTrips();
+        this.loadTrips()    ;
     }
 
     /**
@@ -84,13 +93,13 @@ public class TaxiGraph {
      * @return Nearest TaxiStop object
      */
     public TaxiStop getNearestTaxiStop(double lat, double lon) {
-        double dist = Double.MAX_VALUE;
+        double dist      = Double.MAX_VALUE;
         TaxiStop nearest = null;
         for (TaxiStop taxiStop : this.taxiStops) {
-            double temp = taxiStop.getDistanceBetween(lat, lon);
+            double temp  = taxiStop.distanceTo(lat, lon);
             if (dist > temp) {
-                dist = temp;
-                nearest = taxiStop;
+                dist     = temp;
+                nearest  = taxiStop;
             }
         }
         return nearest;
@@ -108,14 +117,16 @@ public class TaxiGraph {
     public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int maxStops) {
         // Sort stops by distance from (lat, lon)
         return taxiStops.stream()
-                .sorted(Comparator.comparingDouble(stop -> stop.getDistanceBetween(lat, lon)))
+                .sorted(Comparator.comparingDouble(stop -> stop.distanceTo(lat, lon)))
                 .limit(maxStops)
                 .collect(Collectors.toList());
     }
 
     private void LoadtaxiStops() {
 
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(taxiStopsFILENAME)) {
+        long start = System.currentTimeMillis();
+
+        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(TAXISTOPFILENAME)) {
             String line;
 
             // Skip the header
@@ -135,7 +146,7 @@ public class TaxiGraph {
                     for (int i = 5; i < tokens.length; i++) {
                         Address += ", " + tokens[i];
                     }
-                    TaxiStop stop = new TaxiStop(latitude, longitude, name, stopCode, Address);
+                    TaxiStop stop = new TaxiStop(name,latitude, longitude, stopCode+"-Tx", Address,stopCode);
 
                     // Only add if not already in the list
                     boolean exists = taxiStops.stream().anyMatch(s -> s.getName().equalsIgnoreCase(name) &&
@@ -144,26 +155,25 @@ public class TaxiGraph {
                     if (!exists) {
                         this.taxiStops.add(stop);
                     }
+                }else{
+                        malformedStopLines++;
                 }
             }
-            System.out.println("Loaded " + taxiStops.size() + " stops.");
 
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
+        stopsLoadTimeMs = System.currentTimeMillis() - start;
     }
 
     private void loadTrips() {
-
-        Random random = new Random();
+        long start = System.currentTimeMillis();
 
         try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(TRIPSFILENAME)) {
             String line;
             boolean headerSkipped = false;
 
-            int limit = 0;
-            while ((line = br.readLine()) != null && limit < 200) {
-                limit++;
+            while ((line = br.readLine()) != null) {
                 // Skip header
                 if (!headerSkipped) {
                     headerSkipped = true;
@@ -174,22 +184,22 @@ public class TaxiGraph {
                 String[] parts = line.split(",");
                 if (parts.length < 2)
                     continue;
-
-                String departureName = parts[0].trim();
-                String destinationName = parts[1].trim();
+                String ID = parts[0].trim();
+                String departureName = parts[1].trim();
+                String destinationName = parts[2].trim();
 
                 // Try to find TaxitaxiStops from the taxiStops list
                 TaxiStop departure = findStopByName(departureName);
                 TaxiStop destination = findStopByName(destinationName);
 
                 if (departure == null || destination == null) {
+                    missingTripStops++;
                     continue; // skip if stop not found
                 }
-
-                TaxiTrip trip = new TaxiTrip(departure, destination);
-
+                
+                TaxiTrip trip = new TaxiTrip(departure, destination,Trip.DayType.WEEKDAY);
                 // Generate a random duration (10–60 min)
-                double dist = departure.getDistanceBetween(destination);
+                double dist = departure.distanceTo(destination);
 
                 if (dist < 1) {
                     dist = 1;
@@ -201,7 +211,21 @@ public class TaxiGraph {
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
+        tripsLoadTimeMs = System.currentTimeMillis() - start;
     }
+
+    /** Returns metrics for monitoring purposes */
+    public Map<String, Long> getMetrics() {
+        Map<String, Long> metrics = new HashMap<>();
+        metrics.put("totalStops", (long) taxiStops.size());
+        metrics.put("totalTrips", (long) taxiTrips.size());
+        metrics.put("malformedStopLines", (long) malformedStopLines);
+        metrics.put("missingTripStops", (long) missingTripStops);
+        metrics.put("stopsLoadTimeMs", stopsLoadTimeMs);
+        metrics.put("tripsLoadTimeMs", tripsLoadTimeMs);
+        return metrics;
+    }
+
 
     private TaxiStop findStopByName(String name) {
         for (TaxiStop stop : this.taxiStops) {
@@ -246,7 +270,7 @@ public class TaxiGraph {
             }
 
             for (TaxiTrip trip : getOutgoingTrips(current)) {
-                TaxiStop neighbor = trip.getDestination();
+                TaxiStop neighbor = (TaxiStop) trip.getDestinationStop();
 
                 int newDist = distance.get(current) + trip.getDuration();
 
@@ -284,7 +308,7 @@ public class TaxiGraph {
     public List<TaxiTrip> getOutgoingTrips(TaxiStop stop) {
         List<TaxiTrip> outgoing = new ArrayList<>();
         for (TaxiTrip trip : taxiTrips) {
-            if (trip.getDeparture().equals(stop)) {
+            if ( trip.getDestinationStop().equals(stop)) {
                 outgoing.add(trip);
             }
         }
@@ -337,11 +361,7 @@ public class TaxiGraph {
         }
     }
 
-    /*
-     * public static void main(String[] args) {
-     * TaxiGraph g = new TaxiGraph();
-     * g.LoadtaxiStops();
-     * }
-     */
+
+
 
 }

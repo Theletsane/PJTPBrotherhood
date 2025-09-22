@@ -1,9 +1,18 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.IOException;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCityTrip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
@@ -12,199 +21,223 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Train.Train
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
 /**
- * Combined graph for multimodal route planning.
- * <p>
- * Supports taxi, train, and walking connections. Computes outgoing trips for any
- * stop and allows construction of a total list of stops and trips for convenience.
+ * Unified multimodal Graph combining Taxi, Train, and Bus networks.
  */
 public class Graph {
 
-    private final List<Stop> totalStops = new ArrayList<>();
-    private final List<Trip> totalTrips = new ArrayList<>();
-    private final TaxiGraph taxiGraph = new TaxiGraph();
-    private final TrainGraph trainGraph = new TrainGraph();
+    private final List<Stop> totalStops;
+    private final List<Trip> totalTrips;
 
-    // walking threshold and speed
-    private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5;
-    private static final double WALKING_SPEED_KM_PER_MIN = 0.0833; // 5 km/h
+    private final TaxiGraph taxiGraph;
+    private final TrainGraph trainGraph;
+    private final MyCityBusGraph busGraph;
+
+    // Walking assumptions
+    private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5;   // 500m max
+    private static final double WALKING_SPEED_KM_PER_MIN = 0.0833;     // 5km/h
+
+    public Graph() throws IOException {
+        this.totalStops = new ArrayList<>();
+        this.totalTrips = new ArrayList<>();
+
+        this.taxiGraph = new TaxiGraph();
+        this.trainGraph = new TrainGraph();
+        this.busGraph   = new MyCityBusGraph();
+    }
 
     
     /**
-     * Build interchange walking edges between taxi and train stops (used to populate totalStops/totalTrips).
-     * This is optional but convenient if you want a combined list; we still compute outgoing edges on-the-fly.
+     * Loads underlying graphs (call before buildCombinedGraph).
      */
-    public void makeTotalGraph() {
-        List<TaxiStop> taxiStops = taxiGraph.getTaxiStops();
-        List<TrainStop> trainStops = trainGraph.getTrainStops();
+    public void loadGraphData() throws IOException {
+        taxiGraph.loadData();               // your taxi loader
+        trainGraph.loadTrainStops();
+        trainGraph.LoadTrainTrips();
+    }
 
+    /**
+     * Builds a unified multimodal graph with bus, taxi, train, and walking connections.
+     * IMPORTANT: call loadGraphData() before this.
+     */
+    public void buildCombinedGraph() {
         totalStops.clear();
         totalTrips.clear();
 
+        // collect stops and trips from each modality
+        List<TaxiStop> taxiStops = taxiGraph.getTaxiStops();
+        List<TaxiTrip> taxiTrips = taxiGraph.getTaxiTrips();
+
+        List<TrainStop> trainStops = trainGraph.getTrainStops();
+        List<TrainTrips> trainTrips = trainGraph.getTrainTrips();
+
+        List<MyCityStop> busStops = busGraph.getMyCityStops();
+        List<MyCityTrip> busTrips = busGraph.getMyCityTrips();
+
+        // Add all stops (we keep original stop objects, not copies)
         totalStops.addAll(taxiStops);
         totalStops.addAll(trainStops);
+        totalStops.addAll(busStops);
 
-        // add explicit walking trips between close stops (both directions)
-        for (TaxiStop ts : taxiStops) {
-            for (TrainStop tr : trainStops) {
-                double dist = ts.getDistanceBetween(tr.getLatitude(), tr.getLongitude());
-                if (dist <= WALKING_DISTANCE_THRESHOLD_KM) {
-                    int dur = (int) Math.round(dist / WALKING_SPEED_KM_PER_MIN);
-                    totalTrips.add(new Trip(ts, tr, dur));
-                    totalTrips.add(new Trip(tr, ts, dur));
-                }
+        // Add all trips to unified list
+        // Note: TrainTrips, MyCityTrip and TaxiTrip are subclasses of Trip
+        totalTrips.addAll(taxiTrips);
+        totalTrips.addAll(trainTrips);
+        totalTrips.addAll(busTrips);
+
+        // Ensure every trip is attached to its departure stop in the unified graph:
+        // (some per-mode loaders may not have added trips into Stop.TRIPS used here)
+        for (Trip t : new ArrayList<>(totalTrips)) {
+            Stop dep = t.getDepartureStop();
+            if (dep != null) {
+                // make sure the departure stop we have is one of the stops in totalStops
+                // (it should be, because we added original stop objects from each graph)
+                dep.addTrip(t);
             }
         }
 
-        // add taxi and train trips too (so totalTrips contains everything)
-        totalTrips.addAll(taxiGraph.getTaxiTrips());
-        totalTrips.addAll(trainGraph.getTrainTrips());
+        // Add walking transfer edges between nearby stops (cross-mode interchange)
+        // avoid adding duplicates by tracking created edges (depId->destId)
+        Set<String> addedWalking = new HashSet<>();
+        for (Stop s1 : totalStops) {
+            for (Stop s2 : totalStops) {
+                if (s1 == s2) continue;
+                double distKm = s1.distanceTo(s2);
+                if (distKm <= WALKING_DISTANCE_THRESHOLD_KM) {
+                    int durationMinutes = (int) Math.max(1, Math.round(distKm / WALKING_SPEED_KM_PER_MIN));
+                    // walking trips are untimed (departureTime == null) -> immediate
+                    Trip walking = new Trip(s1, s2, durationMinutes, Trip.DayType.WEEKDAY);
+                    walking.setMode("Walking"); // mark type
+                    // Create a simple key to prevent duplicates
+                    String key = s1.getName() + "->" + s2.getName() + ":WALK";
+                    if (!addedWalking.contains(key)) {
+                        totalTrips.add(walking);
+                        s1.addTrip(walking);
+                        addedWalking.add(key);
+                    }
+                }
+            }
+        }
     }
-    
 
     /**
-     * Returns a list of all outgoing trips from a given stop (taxi/train/walking).
-     *
-     * @param stop the stop to find outgoing trips from
-     * @return list of outgoing trips
+     * Get all stops.
      */
-    public List<Trip> getOutgoingTrips(Stop stop) {
-        List<Trip> outgoing = new ArrayList<>();
-
-        // taxi trips
-        for (TaxiTrip t : taxiGraph.getTaxiTrips()) {
-            if (t.getDeparture().equals(stop)) outgoing.add(t);
-        }
-
-        // train trips
-        for (TrainTrips tr : trainGraph.getTrainTrips()) {
-            // Note: TrainTrips exposes departure TrainStop via getDepartureTrainStop()
-            if (tr.getDepartureTrainStop() != null && tr.getDepartureTrainStop().equals(stop)) outgoing.add(tr);
-        }
-
-        // walking connections to nearby stops (both taxi and train)
-        for (TaxiStop ts : taxiGraph.getTaxiStops()) {
-            if (!ts.equals(stop)) {
-                double d = stop.getDistanceBetween(ts.getLatitude(), ts.getLongitude());
-                if (d <= WALKING_DISTANCE_THRESHOLD_KM) {
-                    int dur = (int) Math.round(d / WALKING_SPEED_KM_PER_MIN);
-                    outgoing.add(new Trip(stop, ts, dur));
-                }
-            }
-        }
-        for (TrainStop tr : trainGraph.getTrainStops()) {
-            if (!tr.equals(stop)) {
-                double d = stop.getDistanceBetween(tr.getLatitude(), tr.getLongitude());
-                if (d <= WALKING_DISTANCE_THRESHOLD_KM) {
-                    int dur = (int) Math.round(d / WALKING_SPEED_KM_PER_MIN);
-                    outgoing.add(new Trip(stop, tr, dur));
-                }
-            }
-        }
-
-        return outgoing;
+    public List<Stop> getStops() {
+        return totalStops;
     }
-    
 
     /**
-     * Finds a trip from a given stop to a destination stop.
-     *
-     * @param from starting stop
-     * @param to   destination stop
-     * @return the first matching Trip if exists, null otherwise
+     * Get all trips.
      */
-    private Trip findTripBetween(Stop from, Stop to) {
-        for (Trip t : getOutgoingTrips(from)) {
-            if (t.getDestinationStop().equals(to)) {
-                return t;
+    public List<Trip> getTrips() {
+        return totalTrips;
+    }
+
+    public TrainGraph getTrainGraph(){
+        return this.trainGraph;
+    }  
+
+    public MyCityBusGraph getMyCityBusGraph(){
+        return this.busGraph;
+    }
+
+
+    /**
+     * Find stop by name (case-insensitive).
+     */
+    public Stop findStopByName(String name) {
+        if (name == null) return null;
+        String want = name.trim().toUpperCase();
+        for (Stop stop : totalStops) {
+            if (stop.getName() != null && stop.getName().trim().toUpperCase().equals(want)) {
+                return stop;
             }
         }
         return null;
     }
 
-
     /**
-     * Finds a stop by name from the totalStops list.
-     *
-     * @param name name of the stop
-     * @return Stop object if found, null otherwise
+     * RAPTOR inner class that works across all modes in this unified graph.
      */
-    private Stop findStopByNameInTotal(String name){
-        for (Stop s : totalStops) {
-            if (s.getName().equalsIgnoreCase(name)) return s;
+    public class Raptor {
+
+        private final List<Stop> stops;
+        private final List<Trip> trips;
+
+        public Raptor(List<Stop> stops, List<Trip> trips) {
+            this.stops = stops;
+            this.trips = trips;
         }
-        return null;
+
+        /**
+         * Run RAPTOR: earliest arrival from source to destination.
+         * - Timed trips: must depart at or after arrivalAtP.
+         * - Untimed trips (departureTime == null): considered immediate and take 'duration' minutes.
+         */
+        public List<Trip> compute(Stop source, Stop target, LocalTime departureTime, int maxRounds) {
+            // earliest arrival per stop (LocalTime)
+            Map<Stop, LocalTime> earliestArrival = new HashMap<>();
+            for (Stop stop : stops) earliestArrival.put(stop, LocalTime.MAX);
+            earliestArrival.put(source, departureTime);
+
+            Map<Stop, Trip> parentTrip = new HashMap<>();
+
+            Set<Stop> marked = new HashSet<>();
+            marked.add(source);
+
+            for (int round = 0; round < maxRounds; round++) {
+                Set<Stop> nextMarked = new HashSet<>();
+
+                for (Stop p : marked) {
+                    LocalTime arrivalAtP = earliestArrival.get(p);
+                    if (arrivalAtP == null || arrivalAtP.equals(LocalTime.MAX)) continue;
+
+                    // Note: iterate over p.getTripsFromStop() which we've ensured are populated
+                    for (Trip trip : p.getTrips()) {
+                        LocalTime dep = trip.getDepartureTime();
+                        LocalTime arrAtQ;
+
+                        if (dep == null) {
+                            // untimed trip (walking/transfer/etc.): depart immediately when you arrive at p
+                            arrAtQ = arrivalAtP.plusMinutes(trip.getDuration());
+                        } else {
+                            // scheduled trip: must catch at scheduled departure
+                            if (dep.isBefore(arrivalAtP)) continue; // cannot catch
+                            arrAtQ = dep.plusMinutes(trip.getDuration());
+                        }
+
+                        Stop q = trip.getDestinationStop();
+                        if (arrAtQ.isBefore(earliestArrival.get(q))) {
+                            earliestArrival.put(q, arrAtQ);
+                            parentTrip.put(q, trip);
+                            nextMarked.add(q);
+                        }
+                    }
+                }
+
+                if (nextMarked.isEmpty()) break;
+                marked = nextMarked;
+            }
+
+            // reconstruct journey (list of trips)
+            List<Trip> journey = new ArrayList<>();
+            Stop cur = target;
+            while (parentTrip.containsKey(cur)) {
+                Trip t = parentTrip.get(cur);
+                journey.add(t);
+                cur = t.getDepartureStop();
+            }
+            Collections.reverse(journey);
+            return journey;
+        }
     }
 
+    // convenience accessors
+    public List<TaxiStop> getTaxiStops() { return taxiGraph.getTaxiStops(); }
+    public TaxiGraph getTaxiGraph() { return taxiGraph; }
+    public TaxiStop getNearestTaxiStart(double lat, double lon) { return taxiGraph.getNearestTaxiStop(lat, lon); }
+    public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int max)  { return taxiGraph.getNearestTaxiStops(lat, lon,max); }
+    public TrainStop getNearestTrainStart(double lat, double lon) { return trainGraph.getNearestTrainStop(lat, lon); }
 
-    /**
-     * Loads taxi stops and trips from TaxiGraph.
-     */
-    public void LoadTaxiData() {
-        System.out.println("Loading taxi graph...");
-        taxiGraph.loadData();
-        System.out.printf("TaxiGraph loaded with: %d stops, %d trips\n", taxiGraph.getNumtaxiStops(), taxiGraph.getNumTrips());
-    }
-
-    /**
-     * Loads train stops and trips from TrainGraph.
-     * @throws IOException 
-     */
-    public void LoadTrainData() throws IOException {
-        System.out.println("Loading train data...");
-        trainGraph.loadTrainStops();
-        trainGraph.LoadTrainTrips();
-        System.out.printf("TrainGraph loaded with: %d stops, %d trips\n", trainGraph.getTrainStops().size(), trainGraph.getTrainTrips().size());
-    }
-
-    /**
-     * Returns the nearest taxi stop to a given location.
-     *
-     * @param lat latitude
-     * @param lon longitude
-     * @return nearest TaxiStop
-     */
-    public TaxiStop getNearestTaxiStart(double lat, double lon) {
-        return taxiGraph.getNearestTaxiStop(lat, lon);
-    }
-
-    /**
-     * Returns a list of nearest taxi stops up to a maximum number.
-     *
-     * @param lat latitude
-     * @param lon longitude
-     * @param max maximum number of stops
-     * @return list of nearest TaxiStops
-     */
-    public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int max)  {
-        return taxiGraph.getNearestTaxiStops(lat, lon,max);
-    }
-
-    /**
-     * Returns the nearest train stop to a given location.
-     *
-     * @param lat latitude
-     * @param lon longitude
-     * @return nearest TrainStop
-     */
-    public TrainStop getNearestTrainStart(double lat, double lon) {
-        return trainGraph.getNearestTrainStop(lat, lon);
-    }
-
-    /**
-     * Loads both train and taxi graphs.
-     * @throws IOException 
-     */
-    public void loadGraph() throws IOException{
-        this.LoadTrainData();
-        this.LoadTaxiData();
-    }
-
-
-    public TaxiGraph getTaxiGraph() {
-        return this.taxiGraph;
-    }
-
-
-    
 
 }

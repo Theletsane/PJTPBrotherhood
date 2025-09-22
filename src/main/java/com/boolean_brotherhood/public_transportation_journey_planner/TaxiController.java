@@ -1,10 +1,12 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,14 +24,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 @RequestMapping("/api/taxi")
 public class TaxiController {
 
-    private final Graph graph;
+    private final TaxiGraph graph;
 
     // Store response metrics: key = endpoint, value = list of response times in ms
     private final Map<String, List<Long>> responseMetrics = new HashMap<>();
 
-    public TaxiController() {
-        this.graph = new Graph();
-        graph.LoadTaxiData(); // Load taxi data at startup
+    public TaxiController() throws IOException {
+        this.graph = new TaxiGraph();
     }
 
     private void recordResponseTime(String endpoint, long timeMs) {
@@ -53,7 +55,7 @@ public class TaxiController {
                 "name", stop.getName(),
                 "latitude", stop.getLatitude(),
                 "longitude", stop.getLongitude(),
-                "Distance", stop.getDistanceBetween(lat, lon),
+                "Distance", stop.distanceTo(lat, lon),
                 "Address", stop.getAddress()
             ));
         }
@@ -70,8 +72,7 @@ public class TaxiController {
     @GetMapping("/all-stops")
     public List<Map<String, Object>> getAllTaxiStops() {
         long startTime = System.currentTimeMillis();
-
-        List<TaxiStop> stops = graph.getNearestTaxiStops(0, 0, Integer.MAX_VALUE);
+        List<TaxiStop> stops = graph.getTaxiStops();
         List<Map<String, Object>> response = new ArrayList<>();
         for (TaxiStop stop : stops) {
             response.add(Map.of(
@@ -95,9 +96,9 @@ public class TaxiController {
         long startTime = System.currentTimeMillis();
 
         List<Map<String, Object>> response = new ArrayList<>();
-        for (TaxiTrip trip : graph.getTaxiGraph().getTaxiTrips()) {
+        for (TaxiTrip trip : graph.getTaxiTrips()) {
             response.add(Map.of(
-                "from", trip.getDeparture().getName(),
+                "from", trip.getDepartureStop().getName(),
                 "to", trip.getDestinationStop().getName(),
                 "duration", trip.getDuration()
             ));
@@ -115,6 +116,10 @@ public class TaxiController {
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
         Map<String, Object> result = new HashMap<>();
+        Map<String, Long> taxiMetrics = graph.getMetrics();
+        for(String key: taxiMetrics.keySet()){
+            result.put(key, taxiMetrics.get(key));
+        }
         for (Map.Entry<String, List<Long>> entry : responseMetrics.entrySet()) {
             List<Long> times = entry.getValue();
             double avg = times.stream().mapToLong(Long::longValue).average().orElse(0);
@@ -124,6 +129,8 @@ public class TaxiController {
                 "all_times_ms", times
             ));
         }
+
+
         return result;
     }
 }

@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph.TrainRaptor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
@@ -27,11 +29,11 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Train.Train
 public class TrainController {
 
     private final TrainGraph trainGraph;
+    private final TrainRaptor raptor;
 
-    public TrainController() throws IOException {
-        this.trainGraph = new TrainGraph();
-        trainGraph.loadTrainStops();
-        trainGraph.LoadTrainTrips();
+    public TrainController(TrainGraph graph) {
+        this.trainGraph = graph;
+        this.raptor = new TrainGraph.TrainRaptor(graph);
     }
 
     /** Get all train stops */
@@ -40,11 +42,11 @@ public class TrainController {
         List<Map<String, Object>> stops = new ArrayList<>();
         for (TrainStop stop : trainGraph.getTrainStops()) {
             Map<String, Object> stopMap = new HashMap<>();
-            stopMap.put("id", stop.getStopcode());
+            stopMap.put("id", stop.getStopCode());
             stopMap.put("name", stop.getName());
             stopMap.put("latitude", stop.getLatitude());
             stopMap.put("longitude", stop.getLongitude());
-            stopMap.put("address", stop.getStopAddress());
+            stopMap.put("address", stop.getAddress());
             stops.add(stopMap);
         }
         return stops;
@@ -58,11 +60,11 @@ public class TrainController {
             return Map.of("error", "Stop not found");
         }
         Map<String, Object> stopMap = new HashMap<>();
-        stopMap.put("id", stop.getStopcode());
+        stopMap.put("id", stop.getStopCode());
         stopMap.put("name", stop.getName());
         stopMap.put("latitude", stop.getLatitude());
         stopMap.put("longitude", stop.getLongitude());
-        stopMap.put("address", stop.getStopAddress());
+        stopMap.put("address", stop.getAddress());
         return stopMap;
     }
 
@@ -119,6 +121,10 @@ public class TrainController {
         return response;
     }
 
+    @GetMapping("/metrics")
+    public Map<String, Object> getMetrics() {
+        return trainGraph.getMetrics();
+    }
 
 
     /** Get all trips departing from a stop */
@@ -147,11 +153,11 @@ public class TrainController {
         TrainStop nearest = trainGraph.getNearestTrainStop(lat, lon);
         if (nearest == null) return Map.of("error", "No stops found");
         Map<String, Object> map = new HashMap<>();
-        map.put("id", nearest.getStopcode());
+        map.put("id", nearest.getStopCode());
         map.put("name", nearest.getName());
         map.put("latitude", nearest.getLatitude());
         map.put("longitude", nearest.getLongitude());
-        map.put("address", nearest.getStopAddress());
+        map.put("address", nearest.getAddress());
         return map;
     }
 
