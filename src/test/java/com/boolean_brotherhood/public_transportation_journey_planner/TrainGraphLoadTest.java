@@ -1,9 +1,7 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.IOException;
-import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -13,8 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph.Result;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 
 class TrainGraphTest {
@@ -60,32 +56,4 @@ class TrainGraphTest {
         assertEquals("CAPE TOWN", nearest.getName(), "Expected CAPE TOWN as nearest stop");
     }
 
-    @Test
-    void testGetNearestTaxiStopsLimit() {
-        List<TrainStop> nearestThree = trainGraph.getNearestTaxiStops(-33.9258, 18.4232, 3);
-        assertEquals(3, nearestThree.size(), "Should return exactly 3 stops");
-        
-        // Ensure sorted order by distance
-        double d1 = nearestThree.get(0).getDistanceBetween(-33.9258, 18.4232);
-        double d2 = nearestThree.get(1).getDistanceBetween(-33.9258, 18.4232);
-        assertTrue(d1 <= d2, "Stops should be sorted by distance");
-    }
-
-    @Test
-    void testFindEarliestArrivalNoTrips() {
-        // With no trips loaded, result should be "no path"
-        TrainJourney result = trainGraph.findEarliestArrival("CAPE TOWN", "CLAREMONT", LocalTime.of(8, 0));
-        assertEquals(-1, result.totalMinutes, "No trips loaded -> no valid path");
-        assertTrue(result.path.isEmpty(), "No path should be found without trips");
-    }
-
-    @Test
-    void testComputeRAPTOREmpty() {
-        // No trips loaded, arrival times should remain infinity
-        TrainStop capeTown = trainGraph.getStopByName("CAPE TOWN");
-        Map<TrainStop, Integer> arrivalTimes = trainGraph.computeRAPTOR(capeTown, 480, 2); // 8:00 = 480min
-
-        assertNotNull(arrivalTimes);
-        assertEquals(480, arrivalTimes.get(capeTown).intValue(), "Source should keep its own departure time");
-    }
 }

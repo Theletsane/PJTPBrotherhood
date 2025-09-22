@@ -324,7 +324,7 @@ public class MyCitiBusGraph{
 
     public void log(String msg) {
         String entry = "[" + java.time.LocalTime.now() + "] " + msg;
-        logs.add(entry);
+        //logs.add(entry);
         System.out.println(entry); // still print to console
     }
 
