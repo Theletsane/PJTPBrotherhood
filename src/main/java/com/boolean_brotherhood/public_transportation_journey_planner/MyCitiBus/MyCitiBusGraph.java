@@ -27,7 +27,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 
 
-public class MyCitiBusGraph{
+public final class MyCitiBusGraph{
 
     private final List<MyCitiStop> totalStops ;
     private final List<MyCitiTrip> totalTrips ;
@@ -129,8 +129,8 @@ public class MyCitiBusGraph{
                 String[] parts = line.split(",", -1);
                 String routeCode = parts[0];
                 String routeFullName = parts[1];
-                Path dir1RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
-                Path dir2RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
+                Path dir1RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
+                Path dir2RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
                 getTripsInRoute(dir1RoutePath, routeFullName);
                 getTripsInRoute(dir2RoutePath, routeFullName);
@@ -178,7 +178,7 @@ public class MyCitiBusGraph{
                         String timeStrTo = (i + 1 < cols.length) ? cols[i + 1].trim() : "";
 
                         if (fromStopName.isEmpty() || toStopName.isEmpty() || timeStrFrom.isEmpty() || timeStrTo.isEmpty()) {
-                            missingStops++;
+                            
                             continue;
                         }
 
@@ -186,6 +186,7 @@ public class MyCitiBusGraph{
                         MyCitiStop to = findStop(toStopName);       // CORRECT: to = next header
 
                         if (from == null || to == null) {
+                            missingStops++;
                             LOGGER.fine(() -> "Skipping leg because stop missing: " + fromStopName + " -> " + toStopName);
                             continue;
                         }
@@ -230,6 +231,7 @@ public class MyCitiBusGraph{
         } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
         }
+    
     }
 
     
