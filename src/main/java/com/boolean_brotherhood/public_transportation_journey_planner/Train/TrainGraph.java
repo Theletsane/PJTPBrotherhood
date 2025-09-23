@@ -12,6 +12,7 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -205,7 +206,7 @@ public class TrainGraph {
 
                 if (parts.length >= 5) {
 
-                    String name = parts[5].toUpperCase(); // ATHLONE
+                    String name = parts[5].toUpperCase().trim(); // ATHLONE
                     String code;
                     int OID = -1;
                     int objectID = -1;
@@ -254,89 +255,91 @@ public class TrainGraph {
      * @throws IOException if file reading fails
      */
     private void loadTripsFromCSV(String filePath, String routeNumber) throws IOException {
+
         try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(filePath)) {
             String headerLine = br.readLine();
             if (headerLine == null) {
                 throw new IOException("CSV file empty: " + filePath);
             }
 
-            String[] stationNames = headerLine.split(",", -1);
-            String line;
-            int autoTripCounter = 1;
+                String[] stationNames = headerLine.split(",", -1);
+                String line;
+                int autoTripCounter = 1;
 
-            while ((line = br.readLine()) != null) {
-                if (line.trim().isEmpty()) {
-                    continue;
-                }
-
-                String[] columns = line.split(",", -1);
-                if (columns.length <= 4) {
-                    continue;
-                }
-
-                String rawTripId = columns[0].trim();
-                String rawDayType = columns[1].trim();
-                String rawDirection = columns[2].trim();
-                String rawRouteCode = columns[3].trim();
-
-                Trip.DayType dayType;
-                try {
-                    dayType = Trip.DayType.parseDayType(rawDayType);
-                } catch (IllegalArgumentException ex) {
-                    dayType = Trip.DayType.WEEKDAY;
-                }
-
-                int limit = Math.min(columns.length, stationNames.length);
-                List<TrainStop> orderedStops = new ArrayList<>();
-                List<LocalTime> orderedTimes = new ArrayList<>();
-
-                boolean inbound = rawDirection.equalsIgnoreCase("INBOUND");
-                if (inbound) {
-                    for (int idx = limit - 1; idx >= 4; idx--) {
-                        collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
-                    }
-                } else {
-                    for (int idx = 4; idx < limit; idx++) {
-                        collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
-                    }
-                }
-
-                if (orderedStops.size() < 2) {
-                    continue;
-                }
-
-                String baseTripId = !rawTripId.isEmpty() ? routeNumber + "-" + rawTripId : routeNumber + "-T" + (autoTripCounter++);
-
-                for (int idx = 0; idx < orderedStops.size() - 1; idx++) {
-                    TrainStop departureStop = orderedStops.get(idx);
-                    TrainStop arrivalStop = orderedStops.get(idx + 1);
-                    LocalTime departureTime = orderedTimes.get(idx);
-                    LocalTime arrivalTime = orderedTimes.get(idx + 1);
-
-                    long minutes = Duration.between(departureTime, arrivalTime).toMinutes();
-                    if (minutes < 0) {
-                        minutes += 24 * 60;
-                    }
-                    if (minutes <= 0) {
-                        minutes = 1;
+                while ((line = br.readLine()) != null) {
+                    if (line.trim().isEmpty()) {
+                        continue;
                     }
 
-                    TrainTrips trip = new TrainTrips(departureStop, arrivalStop, dayType, departureTime);
-                    trip.setDuration((int) minutes);
-                    trip.setRouteNumber(routeNumber);
-                    if (!rawRouteCode.isEmpty()) {
-                        trip.setRouteCode(rawRouteCode);
+                    String[] columns = line.split(",", -1);
+                    if (columns.length <= 4) {
+                        continue;
                     }
-                    if (!rawDirection.isEmpty()) {
-                        trip.setDirection(rawDirection);
-                    }
-                    trip.setTripID(baseTripId + "-S" + (idx + 1));
 
-                    trainTrips.add(trip);
-                    departureStop.addTrainTrip(trip);
+                    String rawTripId = columns[0].trim();
+                    String rawDayType = columns[1].trim();
+                    String rawDirection = columns[2].trim();
+                    String rawRouteCode = columns[3].trim();
+
+                    Trip.DayType dayType;
+                    try {
+                        dayType = Trip.DayType.parseDayType(rawDayType);
+                    } catch (IllegalArgumentException ex) {
+                        dayType = Trip.DayType.WEEKDAY;
+                    }
+
+                    int limit = Math.min(columns.length, stationNames.length);
+                    List<TrainStop> orderedStops = new ArrayList<>();
+                    List<LocalTime> orderedTimes = new ArrayList<>();
+
+                    boolean inbound = rawDirection.equalsIgnoreCase("INBOUND");
+                    if (inbound) {
+                        for (int idx = limit - 1; idx >= 4; idx--) {
+                            collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
+                        }
+                    } else {
+                        for (int idx = 4; idx < limit; idx++) {
+                            collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
+                        }
+                    }
+
+                    if (orderedStops.size() < 2) {
+                        continue;
+                    }
+
+                    String baseTripId = !rawTripId.isEmpty() ? routeNumber + "-" + rawTripId : routeNumber + "-T" + (autoTripCounter++);
+
+                    for (int idx = 0; idx < orderedStops.size() - 1; idx++) {
+                        TrainStop departureStop = orderedStops.get(idx);
+                        TrainStop arrivalStop = orderedStops.get(idx + 1);
+                        LocalTime departureTime = orderedTimes.get(idx);
+                        LocalTime arrivalTime = orderedTimes.get(idx + 1);
+
+                        long minutes = Duration.between(departureTime, arrivalTime).toMinutes();
+                        if (minutes < 0) {
+                            minutes += 24 * 60;
+                        }
+                        if (minutes <= 0) {
+                            minutes = 1;
+                        }
+
+                        TrainTrips trip = new TrainTrips(departureStop, arrivalStop, dayType, departureTime);
+                        trip.setDuration((int) minutes);
+                        trip.setRouteNumber(routeNumber);
+                        if (!rawRouteCode.isEmpty()) {
+                            trip.setRouteCode(rawRouteCode);
+                        }
+                        if (!rawDirection.isEmpty()) {
+                            trip.setDirection(rawDirection);
+                        }
+                        trip.setTripID(baseTripId + "-S" + (idx + 1));
+
+                        trainTrips.add(trip);
+                        departureStop.addTrainTrip(trip);
+                    }
                 }
             }
-        }
+    
     }
 
     private void collectStopTime(String[] columns, String[] stationNames, List<TrainStop> orderedStops, List<LocalTime> orderedTimes, int idx) {
@@ -368,6 +371,7 @@ public class TrainGraph {
         String csvSplitBy = ","; // tab-delimited, change to "," if comma-separated
         
         try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(summaryTrips)) {
+
             // skip header line
             br.readLine();
             int i = 0;
@@ -378,7 +382,7 @@ public class TrainGraph {
                     String routeNumber = fields[0].trim();
                     routeNumbers.add(routeNumber);
                     String fileTripName = String.format(
-                            "CapeTownTransitData/train-schedules-2014/%s.csv",
+                            "CapeTownTransitData/Train_Data/Train-schedules-2014/%s.csv",
                             routeNumber);
                             
                     this.loadTripsFromCSV(fileTripName, routeNumber);
@@ -689,377 +693,10 @@ public class TrainGraph {
         }
     }
 
-
-    /**
-     * Focused RAPTOR test with comprehensive mock data generation
-     */
-    public static void main(String[] args) throws IOException {
-        System.out.println("=== RAPTOR Algorithm Test ===\n");
-        
-        TrainGraph graph = new TrainGraph();
-        
-        // Load real stops
-        graph.loadTrainStops();
-        System.out.printf("Loaded %d real train stops\n", graph.getTrainStops().size());
-        
-        // Generate comprehensive mock trip data for RAPTOR testing
-        generateRichMockTripData(graph);
-        System.out.printf("Generated %d mock trips across %d routes\n", 
-                        graph.getTrainTrips().size(), graph.routeNumbers.size());
-        
-        // Test RAPTOR extensively
-        testRaptorAlgorithm(graph);
+        // In TrainGraph.java, add this method:
+    public RouteCoordinateExtractor.RouteSegment getRouteCoordinates(TrainTrips trip) throws IOException {
+        RouteCoordinateExtractor extractor = new RouteCoordinateExtractor();
+        return extractor.getRouteCoordinates(trip);
     }
-
-    /**
-     * Generates comprehensive mock trip data for thorough RAPTOR testing
-     */
-    private static void generateRichMockTripData(TrainGraph graph) {
-        List<TrainStop> stops = graph.getTrainStops();
-        if (stops.size() < 5) {
-            System.out.println("Not enough stops for comprehensive testing");
-            return;
-        }
-        
-        // Find key Cape Town stops
-        TrainStop capeTown = findStop(stops, "CAPE TOWN");
-        TrainStop rondebosch = findStop(stops, "RONDEBOSCH");
-        TrainStop claremont = findStop(stops, "CLAREMONT");
-        TrainStop wynberg = findStop(stops, "WYNBERG");
-        TrainStop athlone = findStop(stops, "ATHLONE");
-        
-        // Use first available stops if specific ones not found
-        List<TrainStop> testStops = new ArrayList<>();
-        if (capeTown != null) testStops.add(capeTown);
-        if (rondebosch != null) testStops.add(rondebosch);
-        if (claremont != null) testStops.add(claremont);
-        if (wynberg != null) testStops.add(wynberg);
-        if (athlone != null) testStops.add(athlone);
-        
-        // Fill with any available stops if we don't have enough
-        while (testStops.size() < 8 && testStops.size() < stops.size()) {
-            for (TrainStop stop : stops) {
-                if (!testStops.contains(stop)) {
-                    testStops.add(stop);
-                    if (testStops.size() >= 8) break;
-                }
-            }
-        }
-        
-        System.out.printf("Using %d stops for mock data generation:\n", testStops.size());
-        for (TrainStop stop : testStops) {
-            System.out.printf("  - %s\n", stop.getName());
-        }
-        
-        // Route 1: Main Line (North-South)
-        createRoute(graph, "MAIN-LINE", testStops.subList(0, Math.min(5, testStops.size())), 
-                LocalTime.of(5, 30), 30, 15, Trip.DayType.WEEKDAY);
-        createRoute(graph, "MAIN-LINE", testStops.subList(0, Math.min(5, testStops.size())), 
-                LocalTime.of(6, 30), 60, 20, Trip.DayType.SATURDAY);
-        
-        // Route 2: Circle Line (connecting different areas)
-        if (testStops.size() >= 4) {
-            List<TrainStop> circleStops = new ArrayList<>();
-            circleStops.add(testStops.get(0)); // Start
-            circleStops.add(testStops.get(2)); // Middle
-            circleStops.add(testStops.get(3)); // End
-            circleStops.add(testStops.get(1)); // Back to connect
-            
-            createRoute(graph, "CIRCLE-LINE", circleStops, 
-                    LocalTime.of(6, 0), 45, 12, Trip.DayType.WEEKDAY);
-        }
-        
-        // Route 3: Express Line (fewer stops, faster)
-        if (testStops.size() >= 3) {
-            createRoute(graph, "EXPRESS", Arrays.asList(testStops.get(0), testStops.get(2), testStops.get(4 % testStops.size())), 
-                    LocalTime.of(7, 0), 20, 8, Trip.DayType.WEEKDAY);
-        }
-        
-        // Route 4: Weekend Service (different schedule)
-        createRoute(graph, "WEEKEND-LINE", testStops.subList(0, Math.min(4, testStops.size())), 
-                LocalTime.of(8, 0), 90, 18, Trip.DayType.SATURDAY);
-        createRoute(graph, "WEEKEND-LINE", testStops.subList(0, Math.min(4, testStops.size())), 
-                LocalTime.of(9, 0), 120, 25, Trip.DayType.SUNDAY);
-        
-        // Route 5: Peak Hour Service (frequent during rush)
-        if (testStops.size() >= 3) {
-            // Morning peak
-            createRoute(graph, "PEAK-AM", Arrays.asList(testStops.get(1), testStops.get(0), testStops.get(2)), 
-                    LocalTime.of(6, 30), 15, 10, Trip.DayType.WEEKDAY);
-            // Evening peak  
-            createRoute(graph, "PEAK-PM", Arrays.asList(testStops.get(0), testStops.get(1), testStops.get(2)), 
-                    LocalTime.of(17, 0), 15, 12, Trip.DayType.WEEKDAY);
-        }
-        
-        // Add some reverse direction trips
-        if (testStops.size() >= 4) {
-            List<TrainStop> reverseStops = new ArrayList<>(testStops.subList(0, 4));
-            Collections.reverse(reverseStops);
-            createRoute(graph, "MAIN-LINE-REV", reverseStops, 
-                    LocalTime.of(6, 15), 30, 16, Trip.DayType.WEEKDAY);
-        }
-    }
-
-    /**
-     * Creates a route with multiple trips throughout the day
-     */
-    private static void createRoute(TrainGraph graph, String routeName, List<TrainStop> stops, 
-                                LocalTime startTime, int intervalMinutes, int tripDuration, 
-                                Trip.DayType dayType) {
-        if (stops.size() < 2) return;
-        
-        if (!graph.routeNumbers.contains(routeName)) {
-            graph.routeNumbers.add(routeName);
-        }
-        
-        LocalTime currentTime = startTime;
-        int tripNumber = 1;
-        
-        // Create trips for 16 hours (realistic service day)
-        while (currentTime.isBefore(LocalTime.of(22, 0))) {
-            // Create trip segments between consecutive stops
-            for (int i = 0; i < stops.size() - 1; i++) {
-                TrainStop from = stops.get(i);
-                TrainStop to = stops.get(i + 1);
-                
-                TrainTrips trip = new TrainTrips(from, to, dayType, currentTime);
-                trip.setDuration(tripDuration);
-                trip.setRouteNumber(routeName);
-                trip.setTripID(routeName + "-T" + tripNumber + "-S" + (i + 1));
-                trip.setDirection(i == 0 ? "OUTBOUND" : "OUTBOUND");
-                
-                graph.getTrainTrips().add(trip);
-                from.addTrainTrip(trip);
-                
-                // Next segment departs after this one arrives
-                currentTime = currentTime.plusMinutes(tripDuration);
-            }
-            
-            // Reset time for next complete trip and add interval
-            currentTime = startTime.plusMinutes(intervalMinutes * tripNumber);
-            tripNumber++;
-            
-            // Prevent infinite loop
-            if (tripNumber > 50) break;
-        }
-    }
-
-    /**
-     * Find stop by name (case insensitive, partial match)
-     */
-    private static TrainStop findStop(List<TrainStop> stops, String name) {
-        for (TrainStop stop : stops) {
-            if (stop.getName().toUpperCase().contains(name.toUpperCase())) {
-                return stop;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Comprehensive RAPTOR algorithm testing
-     */
-    private static void testRaptorAlgorithm(TrainGraph graph) {
-        System.out.println("\n=== RAPTOR ALGORITHM TESTING ===");
-        
-        List<TrainStop> stops = graph.getTrainStops();
-        if (stops.size() < 2) {
-            System.out.println("Need at least 2 stops for testing");
-            return;
-        }
-        
-        // Get some test stops
-        List<TrainStop> testStops = stops.subList(0, Math.min(8, stops.size()));
-        
-        System.out.printf("Testing with %d stops and %d trips\n", 
-                        stops.size(), graph.getTrainTrips().size());
-        
-        // Test Case 1: Basic Journey Planning
-        System.out.println("\n--- Test 1: Basic Journeys ---");
-        testBasicJourneys(graph, testStops);
-        
-        // Test Case 2: Different Day Types
-        System.out.println("\n--- Test 2: Day Type Filtering ---");
-        testDayTypes(graph, testStops);
-        
-        // Test Case 3: Time-based Planning
-        System.out.println("\n--- Test 3: Time-based Planning ---");
-        testTimePlanning(graph, testStops);
-        
-        // Test Case 4: Multi-hop Journeys
-        System.out.println("\n--- Test 4: Multi-hop Journeys ---");
-        testMultiHopJourneys(graph, testStops);
-        
-        // Test Case 5: Performance Testing
-        System.out.println("\n--- Test 5: Performance Testing ---");
-        testPerformance(graph, testStops);
-        
-        // Test Case 6: Edge Cases
-        System.out.println("\n--- Test 6: Edge Cases ---");
-        testEdgeCases(graph, testStops);
-    }
-
-    private static void testBasicJourneys(TrainGraph graph, List<TrainStop> stops) {
-        for (int i = 0; i < Math.min(3, stops.size() - 1); i++) {
-            TrainStop from = stops.get(i);
-            TrainStop to = stops.get(i + 1);
-            
-            TrainJourney journey = graph.findEarliestArrival(
-                from.getName(), to.getName(), LocalTime.of(8, 0), Trip.DayType.WEEKDAY);
-            
-            if (journey != null) {
-                System.out.printf("✓ %s → %s: %d min, %d transfers\n",
-                                from.getName(), to.getName(),
-                                journey.getTotalDurationMinutes(),
-                                journey.getNumberOfTransfers());
-            } else {
-                System.out.printf("✗ %s → %s: No route found\n",
-                                from.getName(), to.getName());
-            }
-        }
-    }
-
-    private static void testDayTypes(TrainGraph graph, List<TrainStop> stops) {
-        if (stops.size() < 2) return;
-        
-        TrainStop from = stops.get(0);
-        TrainStop to = stops.get(1);
-        
-        Trip.DayType[] dayTypes = {Trip.DayType.WEEKDAY, Trip.DayType.SATURDAY, Trip.DayType.SUNDAY};
-        
-        for (Trip.DayType dayType : dayTypes) {
-            TrainJourney journey = graph.findEarliestArrival(
-                from.getName(), to.getName(), LocalTime.of(10, 0), dayType);
-            
-            if (journey != null) {
-                System.out.printf("✓ %s (%s): %d min, %d trips\n",
-                                dayType, from.getName() + "→" + to.getName(),
-                                journey.getTotalDurationMinutes(),
-                                journey.getTrips().size());
-            } else {
-                System.out.printf("✗ %s: No service\n", dayType);
-            }
-        }
-    }
-
-    private static void testTimePlanning(TrainGraph graph, List<TrainStop> stops) {
-        if (stops.size() < 2) return;
-        
-        TrainStop from = stops.get(0);
-        TrainStop to = stops.get(1);
-        
-        LocalTime[] times = {
-            LocalTime.of(6, 0),   // Early morning
-            LocalTime.of(8, 30),  // Morning rush
-            LocalTime.of(12, 0),  // Midday
-            LocalTime.of(17, 30), // Evening rush
-            LocalTime.of(21, 0)   // Evening
-        };
-        
-        for (LocalTime time : times) {
-            TrainJourney journey = graph.findEarliestArrival(
-                from.getName(), to.getName(), time, Trip.DayType.WEEKDAY);
-            
-            if (journey != null) {
-                System.out.printf("✓ Depart %s: Arrive %s (%d min)\n",
-                                time, journey.getArrivalTime(),
-                                journey.getTotalDurationMinutes());
-            } else {
-                System.out.printf("✗ Depart %s: No service\n", time);
-            }
-        }
-    }
-
-    private static void testMultiHopJourneys(TrainGraph graph, List<TrainStop> stops) {
-        // Test longer journeys that might require transfers
-        for (int i = 0; i < Math.min(2, stops.size() - 2); i++) {
-            TrainStop from = stops.get(i);
-            TrainStop to = stops.get(i + 2); // Skip one stop
-            
-            TrainJourney journey = graph.findEarliestArrival(
-                from.getName(), to.getName(), LocalTime.of(9, 0), Trip.DayType.WEEKDAY);
-            
-            if (journey != null) {
-                System.out.printf("✓ %s → %s: %d min, %d transfers, %d legs\n",
-                                from.getName(), to.getName(),
-                                journey.getTotalDurationMinutes(),
-                                journey.getNumberOfTransfers(),
-                                journey.getTrips().size());
-                
-                // Show detailed path for multi-hop journeys
-                if (journey.getTrips().size() > 1) {
-                    for (TrainTrips trip : journey.getTrips()) {
-                        System.out.printf("    [%s] %s → %s at %s\n",
-                                        trip.getRouteNumber(),
-                                        trip.getDepartureTrainStop().getName(),
-                                        trip.getDestinationTrainStop().getName(),
-                                        trip.getDepartureTime());
-                    }
-                }
-            } else {
-                System.out.printf("✗ %s → %s: No route found\n",
-                                from.getName(), to.getName());
-            }
-        }
-    }
-
-    private static void testPerformance(TrainGraph graph, List<TrainStop> stops) {
-        if (stops.size() < 2) return;
-        
-        TrainStop from = stops.get(0);
-        TrainStop to = stops.get(stops.size() - 1);
-        
-        // Run multiple queries and measure performance
-        long totalTime = 0;
-        int successfulQueries = 0;
-        int numTests = 10;
-        
-        for (int i = 0; i < numTests; i++) {
-            long start = System.currentTimeMillis();
-            TrainJourney journey = graph.findEarliestArrival(
-                from.getName(), to.getName(), 
-                LocalTime.of(8 + i % 12, 0), Trip.DayType.WEEKDAY);
-            long elapsed = System.currentTimeMillis() - start;
-            
-            totalTime += elapsed;
-            if (journey != null) successfulQueries++;
-        }
-        
-        System.out.printf("Performance: %d/%d successful queries\n", successfulQueries, numTests);
-        System.out.printf("Average query time: %.1f ms\n", totalTime / (double) numTests);
-        System.out.printf("Last query latency: %d ms\n", graph.getMetrics().get("lastRaptorLatencyMs"));
-    }
-
-    private static void testEdgeCases(TrainGraph graph, List<TrainStop> stops) {
-        if (stops.isEmpty()) return;
-        
-        TrainStop testStop = stops.get(0);
-        
-        // Same source and destination
-        TrainJourney sameJourney = graph.findEarliestArrival(
-            testStop.getName(), testStop.getName(), LocalTime.of(10, 0));
-        System.out.printf("Same source/dest: %s (duration: %d min)\n",
-                        sameJourney != null ? "✓ Handled" : "✗ Failed",
-                        sameJourney != null ? sameJourney.getTotalDurationMinutes() : -1);
-        
-        // Non-existent stops
-        TrainJourney invalidJourney = graph.findEarliestArrival(
-            "NONEXISTENT_STOP", testStop.getName(), LocalTime.of(10, 0));
-        System.out.printf("Invalid source: %s\n",
-                        invalidJourney == null ? "✓ Correctly null" : "✗ Should be null");
-        
-        // Very late departure
-        TrainJourney lateJourney = graph.findEarliestArrival(
-            testStop.getName(), stops.get(Math.min(1, stops.size() - 1)).getName(), 
-            LocalTime.of(23, 59));
-        System.out.printf("Late departure: %s\n",
-                        lateJourney != null ? "✓ Found route" : "✗ No late service");
-        
-        // Very early departure
-        TrainJourney earlyJourney = graph.findEarliestArrival(
-            testStop.getName(), stops.get(Math.min(1, stops.size() - 1)).getName(), 
-            LocalTime.of(4, 0));
-        System.out.printf("Early departure: %s\n",
-                        earlyJourney != null ? "✓ Found route" : "✗ No early service");
-    }
+ 
 }

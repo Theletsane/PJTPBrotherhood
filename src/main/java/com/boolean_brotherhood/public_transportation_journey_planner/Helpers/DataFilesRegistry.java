@@ -15,6 +15,7 @@ public class DataFilesRegistry {
     public static final String MYCITI_TRIPS = "CapeTownTransitData/MyCiti_Data/myciti-route_summary.csv";
     public static final String TRAIN_STOPS = "CapeTownTransitData/Train_Data/TrainStations_Corrected(09_22_2025).csv";
     public static final String TRAIN_TRIPS = "CapeTownTransitData/Train_Data/train-routes-summary.csv";
+    public static final String RAILWAY_GEOJSON = "CapeTownTransitData/Train_Data/Metrorail_Railway_Lines_4.geojson";
 
     // Map to record usage dynamically
     private static final Map<String, String> usageMap = new HashMap<>();
@@ -36,6 +37,7 @@ public class DataFilesRegistry {
             case "MYCITI_TRIPS" -> MYCITI_TRIPS;
             case "TRAIN_STOPS" -> TRAIN_STOPS;
             case "TRAIN_TRIPS" -> TRAIN_TRIPS;
+            case "RAILWAY_GEOJSON" -> RAILWAY_GEOJSON;
             default -> throw new IllegalArgumentException("Unknown file key: " + key);
         };
 
