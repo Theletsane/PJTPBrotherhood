@@ -39,7 +39,10 @@ public class MyCitiBusGraphTest {
             // 6. Test nearest stop functionality
             testNearestStop(graph);
             
-            // 7. Display system logs
+            // 7. Test for stops without outgoing trips
+            testStopsWithoutTrips(graph);
+            
+            // 8. Display system logs
             displaySystemLogs(graph);
             
         } catch (IOException e) {
@@ -217,8 +220,86 @@ public class MyCitiBusGraphTest {
     }
     
     /**
-     * Display system logs
+     * Test for stops without outgoing trips (potential data issues)
      */
+    private static void testStopsWithoutTrips(MyCitiBusGraph graph) {
+        System.out.println("7. Testing for Stops Without Outgoing Trips:");
+        
+        List<MyCitiStop> stops = graph.getMyCitiStops();
+        List<MyCitiStop> stopsWithoutTrips = stops.stream()
+            .filter(stop -> stop.getMyCitiTrips().isEmpty())
+            .toList();
+        
+        System.out.printf("   Found %d stops without outgoing trips (out of %d total stops)%n", 
+            stopsWithoutTrips.size(), stops.size());
+        
+        if (!stopsWithoutTrips.isEmpty()) {
+            double percentageWithoutTrips = (double) stopsWithoutTrips.size() / stops.size() * 100;
+            System.out.printf("   This represents %.1f%% of all stops%n", percentageWithoutTrips);
+            
+            if (percentageWithoutTrips > 50) {
+                System.out.println("   ⚠️  WARNING: More than 50% of stops have no outgoing trips!");
+                System.out.println("      This might indicate a data loading issue.");
+            } else if (percentageWithoutTrips > 20) {
+                System.out.println("   ⚠️  CAUTION: High percentage of stops without trips.");
+                System.out.println("      This might be expected for destination-only stops.");
+            }
+            
+            System.out.println("   Stops without outgoing trips:");
+            int displayCount = Math.min(10, stopsWithoutTrips.size());
+            for (int i = 0; i < displayCount; i++) {
+                MyCitiStop stop = stopsWithoutTrips.get(i);
+                System.out.printf("   - %s (Code: %s) at (%.6f, %.6f)%n",
+                    stop.getName(), stop.getStopCode(),
+                    stop.getLatitude(), stop.getLongitude());
+            }
+            
+            if (stopsWithoutTrips.size() > displayCount) {
+                System.out.printf("   ... and %d more%n", stopsWithoutTrips.size() - displayCount);
+            }
+            
+            // Analyze potential causes
+            analyzeStopsWithoutTrips(graph, stopsWithoutTrips);
+        } else {
+            System.out.println("   ✓ All stops have outgoing trips - excellent data consistency!");
+        }
+        System.out.println();
+    }
+    
+    /**
+     * Analyze potential causes for stops without trips
+     */
+    private static void analyzeStopsWithoutTrips(MyCitiBusGraph graph, List<MyCitiStop> problematicStops) {
+        System.out.println("   Analysis of stops without trips:");
+        
+        // Check if these stops appear as destinations in other trips
+        List<MyCitiTrip> allTrips = graph.getMyCitiTrips();
+        int stopsUsedAsDestinations = 0;
+        
+        for (MyCitiStop problemStop : problematicStops) {
+            boolean isDestination = allTrips.stream()
+                .anyMatch(trip -> trip.getDestinationMyCitiStop().equals(problemStop));
+            
+            if (isDestination) {
+                stopsUsedAsDestinations++;
+            }
+        }
+        
+        System.out.printf("   - %d stops are used as destinations in other trips%n", stopsUsedAsDestinations);
+        System.out.printf("   - %d stops appear to be completely unused%n", 
+            problematicStops.size() - stopsUsedAsDestinations);
+        
+        if (stopsUsedAsDestinations > 0) {
+            System.out.println("   → Stops used only as destinations might be terminus stations");
+        }
+        
+        if (problematicStops.size() - stopsUsedAsDestinations > 0) {
+            System.out.println("   → Completely unused stops might indicate:");
+            System.out.println("     * Stops from routes not included in trip data");
+            System.out.println("     * Stops with name mismatches between stops and trips files");
+            System.out.println("     * Inactive/discontinued stops still in the stops file");
+        }
+    }
     private static void displaySystemLogs(MyCitiBusGraph graph) {
         System.out.println("7. System Logs:");
         List<String> logs = graph.getLogs();
