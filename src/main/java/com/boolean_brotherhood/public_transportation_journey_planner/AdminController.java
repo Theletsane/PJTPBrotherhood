@@ -3,6 +3,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -118,5 +119,11 @@ public class AdminController {
     public Map<String, String> getFilesInUse() {
         return DataFilesRegistry.getUsageLogs();
     }
+
+    @GetMapping("/MostRecentCall")
+    public List<Map<String, Object>> getMostRecentCalls() {
+        return EndpointLog.sendLatestTimesCalled();
+    }
+
 
 }

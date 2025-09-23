@@ -18,7 +18,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.M
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
 @RestController
-@RequestMapping("/myciti")
+@RequestMapping("/api/myciti")
 public class MyCitiBusController {
 
     private final MyCitiBusGraph graph;
@@ -34,6 +34,8 @@ public class MyCitiBusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
+        
+        EndpointLog.LOG("/api/myciti/metrics");  
         Map<String, Object> metrics = new HashMap<>();
         Map<String, Long> MyCitimetrics = graph.getMetrics();
         for(String key: MyCitimetrics.keySet()){
@@ -47,6 +49,7 @@ public class MyCitiBusController {
      */
     @GetMapping("/stops")
     public List<MyCitiStop> getStops() {
+        EndpointLog.LOG("/api/myciti/stops");
         return graph.getMyCitiStops();
     }
 
@@ -55,11 +58,13 @@ public class MyCitiBusController {
      */
     @GetMapping("/trips")
     public List<MyCitiTrip> getTrips() {
+        EndpointLog.LOG("/api/myciti/trips");
         return graph.getMyCitiTrips();
     }
 
     @GetMapping("/logs")
     public List<String> getLogs() {
+        EndpointLog.LOG("/api/myciti/logs");
         return graph.getLogs();
     }
 
@@ -77,7 +82,8 @@ public class MyCitiBusController {
             @RequestParam String target,
             @RequestParam(defaultValue = "08:00") String departure,
             @RequestParam(defaultValue = "4") int maxRounds) {
-
+        
+        EndpointLog.LOG("/api/myciti/journey");
         LocalTime departureTime;
         try {
             departureTime = LocalTime.parse(departure);

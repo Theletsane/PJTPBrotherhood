@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,7 +40,9 @@ public class TaxiController {
      * Get multiple nearest taxi stops
      */
     @PostMapping("/nearest-stops")
+    
     public List<Map<String, Object>> getNearestTaxiStops(@RequestBody JsonNode request) {
+        EndpointLog.LOG("api/taxi/nearest-stops");
         long startTime = System.currentTimeMillis();
 
         double lat = request.get("location").get("latitude").asDouble();
@@ -71,6 +72,7 @@ public class TaxiController {
      */
     @GetMapping("/all-stops")
     public List<Map<String, Object>> getAllTaxiStops() {
+        EndpointLog.LOG("api/taxi/all-stops");
         long startTime = System.currentTimeMillis();
         List<TaxiStop> stops = graph.getTaxiStops();
         List<Map<String, Object>> response = new ArrayList<>();
@@ -93,6 +95,7 @@ public class TaxiController {
      */
     @GetMapping("/all-trips")
     public List<Map<String, Object>> getAllTaxiTrips() {
+        EndpointLog.LOG("api/taxi/all-trips");
         long startTime = System.currentTimeMillis();
 
         List<Map<String, Object>> response = new ArrayList<>();
@@ -115,6 +118,7 @@ public class TaxiController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
+        EndpointLog.LOG("api/taxi/metrics");
         Map<String, Object> result = new HashMap<>();
         Map<String, Long> taxiMetrics = graph.getMetrics();
         for(String key: taxiMetrics.keySet()){
