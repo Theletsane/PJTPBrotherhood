@@ -1,4 +1,4 @@
-mvnpackage com.boolean_brotherhood.public_transportation_journey_planner;
+package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
