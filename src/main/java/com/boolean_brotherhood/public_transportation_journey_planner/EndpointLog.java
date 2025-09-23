@@ -1,12 +1,13 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-
+@RestController
+@RequestMapping("/logEndpoint")
 public class EndpointLog {
 
     private static final Map<String, LocalDateTime> endpoint_and_timeCalled = new HashMap<>();
@@ -24,7 +25,7 @@ public class EndpointLog {
         return sortedEntries;
     }
 
-
+    @GetMapping("/mostRecentCall")
     public static List<Map<String, Object>> sendLatestTimesCalled() {
         List<Map<String, Object>> response = new ArrayList<>();
 

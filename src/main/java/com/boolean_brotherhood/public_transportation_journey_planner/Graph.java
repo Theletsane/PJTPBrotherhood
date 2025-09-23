@@ -63,10 +63,7 @@ public class Graph {
         totalStops.clear();
         totalTrips.clear();
 
-        // collect stops and trips from each modality
-        List<TaxiStop> taxiStops = taxiGraph.getTaxiStops();
-        List<TaxiTrip> taxiTrips = taxiGraph.getTaxiTrips();
-
+        
         List<TrainStop> trainStops = trainGraph.getTrainStops();
         List<TrainTrips> trainTrips = trainGraph.getTrainTrips();
 
@@ -74,13 +71,11 @@ public class Graph {
         List<MyCitiTrip> busTrips = busGraph.getMyCitiTrips();
 
         // Add all stops (we keep original stop objects, not copies)
-        totalStops.addAll(taxiStops);
         totalStops.addAll(trainStops);
         totalStops.addAll(busStops);
 
         // Add all trips to unified list
         // Note: TrainTrips, MyCitiTrip and TaxiTrip are subclasses of Trip
-        totalTrips.addAll(taxiTrips);
         totalTrips.addAll(trainTrips);
         totalTrips.addAll(busTrips);
 

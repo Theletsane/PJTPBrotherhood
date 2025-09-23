@@ -3,6 +3,10 @@ package com.boolean_brotherhood.public_transportation_journey_planner;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,9 +22,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
 
@@ -124,6 +131,57 @@ public class AdminController {
     public List<Map<String, Object>> getMostRecentCalls() {
         return EndpointLog.sendLatestTimesCalled();
     }
+
+    /**
+     * Replace an existing file with a new uploaded file.
+     * If the file does not exist, it will be created.
+     */
+    @PostMapping("/replaceFile")
+    public ResponseEntity<String> replaceFile(
+            @RequestParam String filePath,
+            @RequestPart("file") MultipartFile file
+    ) {
+        try {
+            Path target = Paths.get(DATA_PATH, filePath).normalize();
+            Files.createDirectories(target.getParent()); // Ensure parent folders exist
+            Files.write(target, file.getBytes()); // Replace or create file
+
+            // Optionally log this file replacement
+            System.out.println("File replaced: " + target.toString());
+
+            return ResponseEntity.ok("File replaced successfully: " + target.getFileName());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error replacing file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Update a file's contents by appending new content.
+     * If the file does not exist, it will be created.
+     */
+    @PostMapping("/updateFile")
+    public ResponseEntity<String> updateFile(
+            @RequestParam String filePath,
+            @RequestParam String content
+    ) {
+        try {
+            Path target = Paths.get(DATA_PATH, filePath).normalize();
+            Files.createDirectories(target.getParent());
+            Files.write(target, content.getBytes(StandardCharsets.UTF_8), 
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+            System.out.println("File updated: " + target.toString());
+
+            return ResponseEntity.ok("File updated successfully: " + target.getFileName());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error updating file: " + e.getMessage());
+        }
+    }
+
+    
+
 
 
 }
