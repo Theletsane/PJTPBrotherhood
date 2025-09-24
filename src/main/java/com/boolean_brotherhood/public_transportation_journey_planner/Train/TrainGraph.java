@@ -381,20 +381,20 @@ public class TrainGraph {
                 if (i > 0) {
                     String routeNumber = fields[0].trim();
                     routeNumbers.add(routeNumber);
-                    String fileTripName = String.format(
-                            "CapeTownTransitData/Train_Data/Train-schedules-2014/%s.csv",
-                            routeNumber);
-                            
-                    this.loadTripsFromCSV(fileTripName, routeNumber);
-                    ////// System.out.println(fileTripName);
+                    String fileTripName = String.format("CapeTownTransitData/Train_Data/Train-schedules-2014/%s.csv", routeNumber);
+                    if(MyFileLoader.resourceExists(fileTripName)){
+                        this.loadTripsFromCSV(fileTripName, routeNumber);
+                    }else{
+                        System.out.println("file does not exist "+fileTripName);
+                    }
+                    
+                    ////// 
                 }
-
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
     /* =============================================================================================
      * Results class to will basically turn into journey class
       ==============================================================================================*/
