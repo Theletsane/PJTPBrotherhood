@@ -1,11 +1,12 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 
 @Configuration
 public class GraphConfig {
@@ -24,12 +25,17 @@ public class GraphConfig {
     }
 
     @Bean
-    public MyCitiBusGraph MyCitiBusGraph(Graph graph) {
+    public MyCitiBusGraph myCitiBusGraph(Graph graph) {
         return graph.getMyCitiBusGraph();
     }
 
     @Bean
-    public TaxiGraph taxiGraph(Graph graph){
+    public TaxiGraph taxiGraph(Graph graph) {
         return graph.getTaxiGraph();
+    }
+
+    @Bean
+    public GABusGraph gaBusGraph(Graph graph) {
+        return graph.getGABusGraph();
     }
 }

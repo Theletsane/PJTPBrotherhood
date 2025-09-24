@@ -22,6 +22,7 @@ import java.util.logging.SimpleFormatter;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 
@@ -79,16 +80,7 @@ public final class MyCitiBusGraph{
             e.printStackTrace();
         }
     }
-    public void printStops(int thisMany) {
-        for (int i = 0; i < thisMany && i < this.totalStops.size(); i++) {
-            MyCitiStop stop = this.totalStops.get(i);
-            System.out.println("Stop Code: " + stop.getStopCode());
-            System.out.println("Stop Name: " + stop.getName());
-            System.out.println("Coordinates: (" + stop.getLatitude() + ", " + stop.getLongitude() + ")");
-            System.out.println("Address: " + stop.getAddress());
-            System.out.println("---------------------------");
-        }
-    }
+
 
     public List<MyCitiStop> getMyCitiStops(){
         return this.totalStops;
@@ -151,6 +143,7 @@ public final class MyCitiBusGraph{
         int missingStops = 0;
 
         if (Files.exists(routePath)) {
+            SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = Files.newBufferedReader(routePath)) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
@@ -277,6 +270,7 @@ public final class MyCitiBusGraph{
                 String address = addressBuilder.toString();
 
                 MyCitiStop stop = new MyCitiStop(name, xcoord, ycoord, stopCode, address);
+                SystemLog.add_stop(stop); // -------------------------------------------------------------- LOG
                 this.totalStops.add(stop);
                 stopLookup.put(name.toUpperCase(), stop);
             }

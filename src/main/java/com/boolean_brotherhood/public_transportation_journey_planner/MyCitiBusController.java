@@ -35,7 +35,7 @@ public class MyCitiBusController {
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
         
-        EndpointLog.LOG("/api/myciti/metrics");  
+        SystemLog.log_endpoint("/api/myciti/metrics");  
         Map<String, Object> metrics = new HashMap<>();
         Map<String, Long> MyCitimetrics = graph.getMetrics();
         for(String key: MyCitimetrics.keySet()){
@@ -49,7 +49,7 @@ public class MyCitiBusController {
      */
     @GetMapping("/stops")
     public List<MyCitiStop> getStops() {
-        EndpointLog.LOG("/api/myciti/stops");
+        SystemLog.log_endpoint("/api/myciti/stops");
         return graph.getMyCitiStops();
     }
 
@@ -58,13 +58,13 @@ public class MyCitiBusController {
      */
     @GetMapping("/trips")
     public List<MyCitiTrip> getTrips() {
-        EndpointLog.LOG("/api/myciti/trips");
+        SystemLog.log_endpoint("/api/myciti/trips");
         return graph.getMyCitiTrips();
     }
 
     @GetMapping("/logs")
     public List<String> getLogs() {
-        EndpointLog.LOG("/api/myciti/logs");
+        SystemLog.log_endpoint("/api/myciti/logs");
         return graph.getLogs();
     }
 
@@ -83,7 +83,7 @@ public class MyCitiBusController {
             @RequestParam(defaultValue = "08:00") String departure,
             @RequestParam(defaultValue = "4") int maxRounds) {
         
-        EndpointLog.LOG("/api/myciti/journey");
+        SystemLog.log_endpoint("/api/myciti/journey");
         LocalTime departureTime;
         try {
             departureTime = LocalTime.parse(departure);

@@ -12,28 +12,21 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
-
-
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 
 public class TrainGraph {
 
@@ -41,6 +34,7 @@ public class TrainGraph {
     // Public Transportation Journey
     private final String Complete_Metrorail_Stations;
     private final String summaryTrips ;
+    private final String usageTag;
 
     // Data structures
     private final List<TrainStop> trainStops = new ArrayList<>();
@@ -58,11 +52,19 @@ public class TrainGraph {
     
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
-    
+
+    private BufferedReader openResource(String resourcePath) throws IOException {
+        BufferedReader reader = MyFileLoader.getBufferedReaderFromResource(resourcePath);
+        if (reader == null) {
+            throw new IOException("Resource not found on classpath: " + resourcePath);
+        }
+        return reader;
+    }
+
     public TrainGraph(){
-        String usedBy = this.getClass().getSimpleName();
-        Complete_Metrorail_Stations = DataFilesRegistry.getFile("TRAIN_STOPS",usedBy) ;
-        summaryTrips = DataFilesRegistry.getFile("TRAIN_TRIPS",usedBy) ;
+        this.usageTag = this.getClass().getSimpleName();
+        Complete_Metrorail_Stations = DataFilesRegistry.getFile("TRAIN_STOPS", usageTag);
+        summaryTrips = DataFilesRegistry.getFile("TRAIN_TRIPS", usageTag);
     }
 
         // call these in main/controller after loading
@@ -197,8 +199,14 @@ public class TrainGraph {
      */
     public void loadTrainStops() throws IOException {
         String line;
+        long start = System.currentTimeMillis();
+        SystemLog.log_event("TRAIN_GRAPH", "Loading train stops", "INFO", Map.of(
+                "source", Complete_Metrorail_Stations
+        ));
 
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(Complete_Metrorail_Stations)) {
+        trainStops.clear();
+
+        try (BufferedReader br = openResource(Complete_Metrorail_Stations)) {
             // skip header line
             String headers = br.readLine();
             while ((line = br.readLine()) != null) {
@@ -236,13 +244,15 @@ public class TrainGraph {
                     stop.setRank(rank);
                     stop.setObjectID(objectID);
                     trainStops.add(stop);
-                    
-
+                    SystemLog.add_stations(name, "TRAIN");
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+
+        SystemLog.log_event("TRAIN_GRAPH", "Loaded train stops", "INFO", Map.of(
+                "count", trainStops.size(),
+                "elapsedMs", System.currentTimeMillis() - start
+        ));
     }
 
 
@@ -255,91 +265,106 @@ public class TrainGraph {
      * @throws IOException if file reading fails
      */
     private void loadTripsFromCSV(String filePath, String routeNumber) throws IOException {
+        long start = System.currentTimeMillis();
+        int beforeTrips = trainTrips.size();
+        SystemLog.log_event("TRAIN_GRAPH", "Loading train trips", "INFO", Map.of(
+                "file", filePath,
+                "route", routeNumber
+        ));
+        SystemLog.add_active_route(routeNumber);
 
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(filePath)) {
+        int segmentsAdded = 0;
+        try (BufferedReader br = openResource(filePath)) {
             String headerLine = br.readLine();
             if (headerLine == null) {
                 throw new IOException("CSV file empty: " + filePath);
             }
 
-                String[] stationNames = headerLine.split(",", -1);
-                String line;
-                int autoTripCounter = 1;
+            String[] stationNames = headerLine.split(",", -1);
+            String line;
+            int autoTripCounter = 1;
+            segmentsAdded = 0;
 
-                while ((line = br.readLine()) != null) {
-                    if (line.trim().isEmpty()) {
-                        continue;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+
+                String[] columns = line.split(",", -1);
+                if (columns.length <= 4) {
+                    continue;
+                }
+
+                String rawTripId = columns[0].trim();
+                String rawDayType = columns[1].trim();
+                String rawDirection = columns[2].trim();
+                String rawRouteCode = columns[3].trim();
+
+                Trip.DayType dayType;
+                try {
+                    dayType = Trip.DayType.parseDayType(rawDayType);
+                } catch (IllegalArgumentException ex) {
+                    dayType = Trip.DayType.WEEKDAY;
+                }
+
+                int limit = Math.min(columns.length, stationNames.length);
+                List<TrainStop> orderedStops = new ArrayList<>();
+                List<LocalTime> orderedTimes = new ArrayList<>();
+
+                boolean inbound = rawDirection.equalsIgnoreCase("INBOUND");
+                if (inbound) {
+                    for (int idx = limit - 1; idx >= 4; idx--) {
+                        collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
                     }
-
-                    String[] columns = line.split(",", -1);
-                    if (columns.length <= 4) {
-                        continue;
-                    }
-
-                    String rawTripId = columns[0].trim();
-                    String rawDayType = columns[1].trim();
-                    String rawDirection = columns[2].trim();
-                    String rawRouteCode = columns[3].trim();
-
-                    Trip.DayType dayType;
-                    try {
-                        dayType = Trip.DayType.parseDayType(rawDayType);
-                    } catch (IllegalArgumentException ex) {
-                        dayType = Trip.DayType.WEEKDAY;
-                    }
-
-                    int limit = Math.min(columns.length, stationNames.length);
-                    List<TrainStop> orderedStops = new ArrayList<>();
-                    List<LocalTime> orderedTimes = new ArrayList<>();
-
-                    boolean inbound = rawDirection.equalsIgnoreCase("INBOUND");
-                    if (inbound) {
-                        for (int idx = limit - 1; idx >= 4; idx--) {
-                            collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
-                        }
-                    } else {
-                        for (int idx = 4; idx < limit; idx++) {
-                            collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
-                        }
-                    }
-
-                    if (orderedStops.size() < 2) {
-                        continue;
-                    }
-
-                    String baseTripId = !rawTripId.isEmpty() ? routeNumber + "-" + rawTripId : routeNumber + "-T" + (autoTripCounter++);
-
-                    for (int idx = 0; idx < orderedStops.size() - 1; idx++) {
-                        TrainStop departureStop = orderedStops.get(idx);
-                        TrainStop arrivalStop = orderedStops.get(idx + 1);
-                        LocalTime departureTime = orderedTimes.get(idx);
-                        LocalTime arrivalTime = orderedTimes.get(idx + 1);
-
-                        long minutes = Duration.between(departureTime, arrivalTime).toMinutes();
-                        if (minutes < 0) {
-                            minutes += 24 * 60;
-                        }
-                        if (minutes <= 0) {
-                            minutes = 1;
-                        }
-
-                        TrainTrips trip = new TrainTrips(departureStop, arrivalStop, dayType, departureTime);
-                        trip.setDuration((int) minutes);
-                        trip.setRouteNumber(routeNumber);
-                        if (!rawRouteCode.isEmpty()) {
-                            trip.setRouteCode(rawRouteCode);
-                        }
-                        if (!rawDirection.isEmpty()) {
-                            trip.setDirection(rawDirection);
-                        }
-                        trip.setTripID(baseTripId + "-S" + (idx + 1));
-
-                        trainTrips.add(trip);
-                        departureStop.addTrainTrip(trip);
+                } else {
+                    for (int idx = 4; idx < limit; idx++) {
+                        collectStopTime(columns, stationNames, orderedStops, orderedTimes, idx);
                     }
                 }
+
+                if (orderedStops.size() < 2) {
+                    continue;
+                }
+
+                String baseTripId = !rawTripId.isEmpty() ? routeNumber + "-" + rawTripId : routeNumber + "-T" + (autoTripCounter++);
+
+                for (int idx = 0; idx < orderedStops.size() - 1; idx++) {
+                    TrainStop departureStop = orderedStops.get(idx);
+                    TrainStop arrivalStop = orderedStops.get(idx + 1);
+                    LocalTime departureTime = orderedTimes.get(idx);
+                    LocalTime arrivalTime = orderedTimes.get(idx + 1);
+
+                    long minutes = Duration.between(departureTime, arrivalTime).toMinutes();
+                    if (minutes < 0) {
+                        minutes += 24 * 60;
+                    }
+                    if (minutes <= 0) {
+                        minutes = 1;
+                    }
+
+                    TrainTrips trip = new TrainTrips(departureStop, arrivalStop, dayType, departureTime);
+                    trip.setDuration((int) minutes);
+                    trip.setRouteNumber(routeNumber);
+                    if (!rawRouteCode.isEmpty()) {
+                        trip.setRouteCode(rawRouteCode);
+                    }
+                    if (!rawDirection.isEmpty()) {
+                        trip.setDirection(rawDirection);
+                    }
+                    trip.setTripID(baseTripId + "-S" + (idx + 1));
+
+                    trainTrips.add(trip);
+                    departureStop.addTrainTrip(trip);
+                    segmentsAdded++;
+                }
             }
-    
+        }
+
+        SystemLog.log_event("TRAIN_GRAPH", "Loaded train trips", "INFO", Map.of(
+                "route", routeNumber,
+                "addedSegments", segmentsAdded,
+                "elapsedMs", System.currentTimeMillis() - start
+        ));
     }
 
     private void collectStopTime(String[] columns, String[] stationNames, List<TrainStop> orderedStops, List<LocalTime> orderedTimes, int idx) {
@@ -366,11 +391,23 @@ public class TrainGraph {
      * Loads all route numbers from the summary CSV and loads the respective trip
      * schedules.
      */
-    public void LoadTrainTrips() {
+    public void LoadTrainTrips() throws IOException {
         String line;
         String csvSplitBy = ","; // tab-delimited, change to "," if comma-separated
-        
-        try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(summaryTrips)) {
+
+        long start = System.currentTimeMillis();
+        SystemLog.log_event("TRAIN_GRAPH", "Loading train trip schedules", "INFO", Map.of(
+                "summaryResource", summaryTrips
+        ));
+
+        routeNumbers.clear();
+        trainTrips.clear();
+        for (TrainStop stop : trainStops) {
+            stop.getTrips().removeIf(trip -> trip instanceof TrainTrips);
+        }
+
+        int routesProcessed = 0;
+        try (BufferedReader br = openResource(summaryTrips)) {
 
             // skip header line
             br.readLine();
@@ -378,23 +415,38 @@ public class TrainGraph {
             while ((line = br.readLine()) != null) {
                 i++;
                 String[] fields = line.split(csvSplitBy);
-                if (i > 0) {
+                if (i > 0 && fields.length > 0) {
                     String routeNumber = fields[0].trim();
-                    routeNumbers.add(routeNumber);
-                    String fileTripName = String.format("CapeTownTransitData/Train_Data/Train-schedules-2014/%s.csv", routeNumber);
-                    if(MyFileLoader.resourceExists(fileTripName)){
-                        this.loadTripsFromCSV(fileTripName, routeNumber);
-                    }else{
-                        System.out.println("file does not exist "+fileTripName);
+                    if (routeNumber.isEmpty()) {
+                        continue;
                     }
-                    
-                    ////// 
+                    routeNumber = routeNumber.toUpperCase();
+                    routeNumbers.add(routeNumber);
+                    routesProcessed++;
+
+                    String scheduleResource = DataFilesRegistry.getTrainScheduleResource(routeNumber, usageTag);
+                    try {
+                        loadTripsFromCSV(scheduleResource, routeNumber);
+                    } catch (IOException scheduleEx) {
+                        SystemLog.log_event("TRAIN_GRAPH", "Failed to load train schedule", "ERROR", Map.of(
+                                "route", routeNumber,
+                                "resource", scheduleResource,
+                                "error", scheduleEx.getMessage()
+                        ));
+                    }
                 }
+
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+
+        SystemLog.log_event("TRAIN_GRAPH", "Loaded train trip schedules", "INFO", Map.of(
+                "routes", routesProcessed,
+                "tripSegments", trainTrips.size(),
+                "elapsedMs", System.currentTimeMillis() - start
+        ));
     }
+
+    
     /* =============================================================================================
      * Results class to will basically turn into journey class
       ==============================================================================================*/
@@ -645,8 +697,21 @@ public class TrainGraph {
      * @return TrainJourney object containing the journey details
      */
     public TrainJourney findEarliestArrival(String startName, String endName, LocalTime startTime, Trip.DayType dayType) {
+        SystemLog.log_event("TRAIN_GRAPH", "findEarliestArrival invoked", "INFO", Map.of(
+                "from", startName,
+                "to", endName,
+                "dayType", dayType != null ? dayType.name() : "ANY"
+        ));
+        long start = System.currentTimeMillis();
         TrainRaptor raptor = new TrainRaptor(this);
-        return raptor.runRaptor(startName, endName, startTime, dayType, 6);
+        TrainJourney journey = raptor.runRaptor(startName, endName, startTime, dayType, 6);
+        SystemLog.log_event("TRAIN_GRAPH", "findEarliestArrival completed", (journey == null || journey.getTrips().isEmpty()) ? "WARN" : "INFO", Map.of(
+                "from", startName,
+                "to", endName,
+                "segments", journey != null ? journey.getTrips().size() : 0,
+                "elapsedMs", System.currentTimeMillis() - start
+        ));
+        return journey;
     }
 
     // Overloaded method for backward compatibility (defaults to WEEKDAY)

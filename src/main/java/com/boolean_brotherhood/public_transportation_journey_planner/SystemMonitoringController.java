@@ -36,6 +36,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> getSystemHealth() {
+        SystemLog.log_endpoint("/api/monitor/health");
         try {
             Map<String, Object> healthReport = healthMonitor.performHealthCheck();
             
@@ -57,6 +58,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> getSystemSummary() {
+        SystemLog.log_endpoint("/api/monitor/summary");
         try {
             Map<String, Object> summary = healthMonitor.getSystemSummary();
             return ResponseEntity.ok(summary);
@@ -71,6 +73,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/ready")
     public ResponseEntity<Map<String, Object>> isSystemReady() {
+        SystemLog.log_endpoint("/api/monitor/ready");
         boolean isReady = healthMonitor.isSystemHealthy();
         
         Map<String, Object> response = Map.of(
@@ -91,6 +94,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/graph/{graphName}/ready")
     public ResponseEntity<Map<String, Object>> isGraphReady(@PathVariable String graphName) {
+        SystemLog.log_endpoint("/api/monitor/graph/{graphName}/ready");
         try {
             boolean isReady = healthMonitor.isGraphReady(graphName);
             
@@ -118,6 +122,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/graph/{graphName}")
     public ResponseEntity<Map<String, Object>> getGraphStatus(@PathVariable String graphName) {
+        SystemLog.log_endpoint("/api/monitor/graph/{graphName}");
         try {
             Map<String, Object> status = healthMonitor.getGraphStatus(graphName);
             
@@ -138,6 +143,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/alerts")
     public ResponseEntity<Map<String, Object>> getActiveAlerts() {
+        SystemLog.log_endpoint("/api/monitor/alerts");
         try {
             List<Map<String, Object>> alerts = healthMonitor.getActiveAlerts();
             
@@ -157,6 +163,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/alerts/all")
     public ResponseEntity<Map<String, Object>> getAllAlerts() {
+        SystemLog.log_endpoint("/api/monitor/alerts/all");
         try {
             List<Map<String, Object>> alerts = healthMonitor.getAllAlerts();
             
@@ -176,6 +183,7 @@ public class SystemMonitoringController {
      */
     @PostMapping("/health/check")
     public ResponseEntity<Map<String, Object>> forceHealthCheck() {
+        SystemLog.log_endpoint("/api/monitor/health/check");
         try {
             Map<String, Object> healthReport = healthMonitor.forceHealthCheck();
             return ResponseEntity.ok(healthReport);
@@ -191,6 +199,7 @@ public class SystemMonitoringController {
      */
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getMonitoringStats() {
+        SystemLog.log_endpoint("/api/monitor/stats");
         try {
             Map<String, Object> summary = healthMonitor.getSystemSummary();
             

@@ -16,6 +16,7 @@ public class DataFilesRegistry {
     public static final String TRAIN_STOPS = "CapeTownTransitData/Train_Data/TrainStations_Corrected(09_22_2025).csv";
     public static final String TRAIN_TRIPS = "CapeTownTransitData/Train_Data/train-routes-summary.csv";
     public static final String RAILWAY_GEOJSON = "CapeTownTransitData/Train_Data/Metrorail_Railway_Lines_4.geojson";
+    private static final String TRAIN_SCHEDULE_TEMPLATE = "CapeTownTransitData/Train_Data/train-schedules-2014/%s.csv";
 
     // Map to record usage dynamically
     private static final Map<String, String> usageMap = new HashMap<>();
@@ -45,6 +46,20 @@ public class DataFilesRegistry {
         
         usageMap.put(path, usedByClass);
         return path;
+    }
+
+    /**
+     * Build the classpath resource path for a per-route train schedule CSV and record usage.
+     */
+    public static String getTrainScheduleResource(String routeNumber, String usedByClass) {
+        if (routeNumber == null || routeNumber.isBlank()) {
+            throw new IllegalArgumentException("Route number must not be blank when requesting a train schedule resource.");
+        }
+
+        String normalized = routeNumber.trim().toUpperCase();
+        String pathValue = String.format(TRAIN_SCHEDULE_TEMPLATE, normalized);
+        usageMap.put(pathValue, usedByClass);
+        return pathValue;
     }
 
     /**

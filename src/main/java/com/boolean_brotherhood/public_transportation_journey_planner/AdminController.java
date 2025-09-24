@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,10 +57,14 @@ public class AdminController {
      */
     @GetMapping("/list")
     public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
+        SystemLog.log_endpoint("/api/admin/list");
         String targetPath = DATA_PATH + (subPath != null ? subPath : "");
         Resource resource = new ClassPathResource(targetPath);
 
         if (!resource.exists()) {
+            SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
+                    "targetPath", targetPath
+            ));
             return ResponseEntity.notFound().build();
         }
 
@@ -73,6 +76,11 @@ public class AdminController {
             }
         }
 
+        SystemLog.log_event("ADMIN", "Listed data files", "INFO", Map.of(
+                "targetPath", targetPath,
+                "count", fileNames.size()
+        ));
+
         return ResponseEntity.ok(fileNames);
     }
 
@@ -81,13 +89,21 @@ public class AdminController {
      */
     @GetMapping("/file")
     public ResponseEntity<String> readFile(@RequestParam String filePath) throws IOException {
+        SystemLog.log_endpoint("/api/admin/file");
         Resource resource = new ClassPathResource(DATA_PATH + filePath);
 
         if (!resource.exists()) {
+            SystemLog.log_event("ADMIN", "Requested data file not found", "WARN", Map.of(
+                    "filePath", filePath
+            ));
             return ResponseEntity.notFound().build();
         }
 
         String content = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+        SystemLog.log_event("ADMIN", "Read data file", "INFO", Map.of(
+                "filePath", filePath,
+                "size", content.length()
+        ));
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_PLAIN)
                 .body(content);
@@ -98,11 +114,20 @@ public class AdminController {
      */
     @GetMapping("/download")
     public ResponseEntity<Resource> downloadFile(@RequestParam String filePath) throws IOException {
+        SystemLog.log_endpoint("/api/admin/download");
         Resource resource = new ClassPathResource(DATA_PATH + filePath);
 
         if (!resource.exists()) {
+            SystemLog.log_event("ADMIN", "Requested download missing", "WARN", Map.of(
+                    "filePath", filePath
+            ));
             return ResponseEntity.notFound().build();
         }
+
+        SystemLog.log_event("ADMIN", "Prepared file download", "INFO", Map.of(
+                "filePath", filePath,
+                "fileName", resource.getFilename()
+        ));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
@@ -115,21 +140,47 @@ public class AdminController {
      */
     @GetMapping("/systemMetrics")
     public Map<String, Object> getAllMetrics() {
+        SystemLog.log_endpoint("/api/admin/systemMetrics");
         Map<String, Object> metrics = new HashMap<>();
         metrics.put("train", trainController.getMetrics());
         metrics.put("taxi", taxiController.getMetrics());
         metrics.put("bus", busController.getMetrics());
+        SystemLog.log_event("ADMIN", "Collected subsystem metrics", "INFO", Map.of(
+                "sections", metrics.keySet().size()
+        ));
         return metrics;
     }
     
     @GetMapping("/GetFileInUse")
     public Map<String, String> getFilesInUse() {
-        return DataFilesRegistry.getUsageLogs();
+        SystemLog.log_endpoint("/api/admin/GetFileInUse");
+        Map<String, String> usage = DataFilesRegistry.getUsageLogs();
+        SystemLog.log_event("ADMIN", "Fetched files-in-use registry", "INFO", Map.of(
+                "entries", usage.size()
+        ));
+        return usage;
     }
 
     @GetMapping("/MostRecentCall")
     public List<Map<String, Object>> getMostRecentCalls() {
-        return EndpointLog.sendLatestTimesCalled();
+        SystemLog.log_endpoint("/api/admin/MostRecentCall");
+        List<Map<String, Object>> recent = SystemLog.GET_ENDPOINT_DATA();
+        SystemLog.log_event("ADMIN", "Requested endpoint call history", "INFO", Map.of(
+                "count", recent.size()
+        ));
+        return recent;
+    }
+
+    @GetMapping("/systemLogs")
+    public List<Map<String, Object>> getSystemLogs(@RequestParam(name = "limit", defaultValue = "100") int limit) {
+        SystemLog.log_endpoint("/api/admin/systemLogs");
+        int safeLimit = Math.max(1, limit);
+        List<Map<String, Object>> logs = SystemLog.GET_SYSTEM_EVENTS(safeLimit);
+        SystemLog.log_event("ADMIN", "Retrieved system event snapshot", "INFO", Map.of(
+                "requestedLimit", limit,
+                "returned", logs.size()
+        ));
+        return logs;
     }
 
     /**
@@ -141,17 +192,23 @@ public class AdminController {
             @RequestParam String filePath,
             @RequestPart("file") MultipartFile file
     ) {
+        SystemLog.log_endpoint("/api/admin/replaceFile");
         try {
             Path target = Paths.get(DATA_PATH, filePath).normalize();
-            Files.createDirectories(target.getParent()); // Ensure parent folders exist
-            Files.write(target, file.getBytes()); // Replace or create file
+            Files.createDirectories(target.getParent());
+            Files.write(target, file.getBytes());
 
-            // Optionally log this file replacement
-            System.out.println("File replaced: " + target.toString());
+            SystemLog.log_event("ADMIN", "Replaced data file", "INFO", Map.of(
+                    "filePath", target.toString(),
+                    "size", file.getSize()
+            ));
 
             return ResponseEntity.ok("File replaced successfully: " + target.getFileName());
         } catch (IOException e) {
-            e.printStackTrace();
+            SystemLog.log_event("ADMIN", "Failed to replace file", "ERROR", Map.of(
+                    "filePath", filePath,
+                    "error", e.getMessage()
+            ));
             return ResponseEntity.status(500).body("Error replacing file: " + e.getMessage());
         }
     }
@@ -165,23 +222,25 @@ public class AdminController {
             @RequestParam String filePath,
             @RequestParam String content
     ) {
+        SystemLog.log_endpoint("/api/admin/updateFile");
         try {
             Path target = Paths.get(DATA_PATH, filePath).normalize();
             Files.createDirectories(target.getParent());
             Files.write(target, content.getBytes(StandardCharsets.UTF_8), 
                         StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
-            System.out.println("File updated: " + target.toString());
+            SystemLog.log_event("ADMIN", "Updated data file", "INFO", Map.of(
+                    "filePath", target.toString(),
+                    "appendLength", content.length()
+            ));
 
             return ResponseEntity.ok("File updated successfully: " + target.getFileName());
         } catch (IOException e) {
-            e.printStackTrace();
+            SystemLog.log_event("ADMIN", "Failed to update file", "ERROR", Map.of(
+                    "filePath", filePath,
+                    "error", e.getMessage()
+            ));
             return ResponseEntity.status(500).body("Error updating file: " + e.getMessage());
         }
     }
-
-    
-
-
-
 }

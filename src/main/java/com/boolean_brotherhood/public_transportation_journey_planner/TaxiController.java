@@ -42,7 +42,7 @@ public class TaxiController {
     @PostMapping("/nearest-stops")
     
     public List<Map<String, Object>> getNearestTaxiStops(@RequestBody JsonNode request) {
-        EndpointLog.LOG("api/taxi/nearest-stops");
+        SystemLog.log_endpoint("api/taxi/nearest-stops");
         long startTime = System.currentTimeMillis();
 
         double lat = request.get("location").get("latitude").asDouble();
@@ -72,7 +72,7 @@ public class TaxiController {
      */
     @GetMapping("/all-stops")
     public List<Map<String, Object>> getAllTaxiStops() {
-        EndpointLog.LOG("api/taxi/all-stops");
+        SystemLog.log_endpoint("api/taxi/all-stops");
         long startTime = System.currentTimeMillis();
         List<TaxiStop> stops = graph.getTaxiStops();
         List<Map<String, Object>> response = new ArrayList<>();
@@ -95,7 +95,7 @@ public class TaxiController {
      */
     @GetMapping("/all-trips")
     public List<Map<String, Object>> getAllTaxiTrips() {
-        EndpointLog.LOG("api/taxi/all-trips");
+        SystemLog.log_endpoint("api/taxi/all-trips");
         long startTime = System.currentTimeMillis();
 
         List<Map<String, Object>> response = new ArrayList<>();
@@ -118,7 +118,7 @@ public class TaxiController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        EndpointLog.LOG("api/taxi/metrics");
+        SystemLog.log_endpoint("api/taxi/metrics");
         Map<String, Object> result = new HashMap<>();
         Map<String, Long> taxiMetrics = graph.getMetrics();
         for(String key: taxiMetrics.keySet()){

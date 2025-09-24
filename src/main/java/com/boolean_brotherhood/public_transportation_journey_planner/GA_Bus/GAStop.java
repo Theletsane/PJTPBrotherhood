@@ -5,6 +5,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.BusStop;
 
@@ -34,12 +35,12 @@ public class GAStop extends BusStop{
      * @param trip MyCitiTrip object
      */
     public List<GATrip> getGATrips() {
-        return trips;
+        return this.trips;
     }
 
     public void addGATrip(GATrip trip) {
         if (trip != null) {
-            trips.add(trip);
+            this.trips.add(trip);
         }
     }
 
@@ -56,13 +57,24 @@ public class GAStop extends BusStop{
         trips.sort(Comparator.comparing(GATrip::getDepartureTime));
     }
 
-    public boolean equals(GAStop other){
-        return (
-            (this.getLatitude() == other.getLatitude()) &&
-            (this.getLongitude() == other.getLongitude()) &&
-            (this.getName().equals(other.getName())) &&
-            (this.getStopCode().equals(other.getStopCode()))
-        );
+    @Override
+public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+
+    GAStop other = (GAStop) obj;
+
+    return Double.compare(this.getLatitude(), other.getLatitude()) == 0 &&
+           Double.compare(this.getLongitude(), other.getLongitude()) == 0 &&
+           this.getName().equals(other.getName()) &&
+           this.getStopCode().equals(other.getStopCode());
+    }
+
+
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(getLatitude(), getLongitude(), getName(), getStopCode());
     }
 
     @Override

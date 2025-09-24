@@ -7,6 +7,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,10 +19,19 @@ import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
+/**
+ * Represents the Golden Arrow (GA) bus transit network.
+ * 
+ * Responsibilities:
+ * - Load bus stops and trips from CSV resource files.
+ * - Build stop indices for fast lookup.
+ * - Support journey planning using RAPTOR and Connection Scan Algorithm (CSA).
+ * - Provide system metrics (stops, trips, load times).
+ */
 public class GABusGraph {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
@@ -30,12 +40,16 @@ public class GABusGraph {
     private static final String SCHEDULE_DIR_RESOURCE = "CapeTownTransitData/GA_Data/ga-bus-schedules";
 
     public static final Logger LOGGER = Logger.getLogger(GABusGraph.class.getName());
-
     private final List<GAStop> totalStops = new ArrayList<>();
     private final List<GATrip> totalTrips = new ArrayList<>();
     private final Map<String, GAStop> stopsByCode = new HashMap<>();
     private final Map<String, GAStop> stopsByName = new HashMap<>();
     private final Map<GAStop, Set<String>> stopTokenCache = new HashMap<>();
+    private long stopsLoadTimeMs = 0;
+    private long tripsLoadTimeMs = 0;
+    private final List<Connection> connections = new ArrayList<>(); // all connections sorted by departure time
+    private final Map<GAStop, Integer> stopToId = new HashMap<>(); // GAStop -> integer id
+    private final List<GAStop> idToStop = new ArrayList<>(); // index -> GAStop
 
     static {
         try {
@@ -49,32 +63,64 @@ public class GABusGraph {
         }
     }
 
+    /**
+     * Loads stop data and trip schedules from CSV resources,
+     * builds stop indices, and prepares connections for CSA queries.
+     *
+     * @throws IOException if any resource file cannot be read
+     */
+
     public GABusGraph() throws IOException {
+        long p1 = System.currentTimeMillis();
         loadStopsFromCSV(STOPS_RESOURCE);
+        long p2 = System.currentTimeMillis();
         loadGATrips();
+        long p3 = System.currentTimeMillis();
+        stopsLoadTimeMs = p2-p1;
+        tripsLoadTimeMs = p3-p2;
+
+        // Build indices & connections for CSA
+        buildStopIndex();
+        buildConnectionsFromTrips();
+
     }
 
-    public void printStops(int limit) {
-        for (int i = 0; i < limit && i < totalStops.size(); i++) {
-            GAStop stop = totalStops.get(i);
-            System.out.println("Stop Code: " + stop.getStopCode());
-            System.out.println("Stop Name: " + stop.getName());
-            System.out.println("Coordinates: (" + stop.getLatitude() + ", " + stop.getLongitude() + ")");
-            System.out.println("Address: " + stop.getAddress());
-            System.out.println("Routes: " + stop.getRouteCodes());
-            System.out.println("Trips: " + stop.getGATrips().size());
-            System.out.println("---------------------------");
-        }
+    /**
+     * Returns metrics about the loaded graph including total stops,
+     * total trips, and load times in milliseconds.
+     *
+     * @return map of metric name → value
+     */
+    public Map<String, Long> getMetrics() {
+        Map<String, Long> metrics = new HashMap<>();
+        metrics.put("totalStops", (long) totalStops.size());
+        metrics.put("totalTrips", (long) totalTrips.size());
+        metrics.put("stopsLoadTimeMs", stopsLoadTimeMs);
+        metrics.put("tripsLoadTimeMs", tripsLoadTimeMs);
+        return metrics;
     }
 
+    /**
+     * @return an unmodifiable list of all GA stops in the network
+     */
     public List<GAStop> getGAStops() {
         return Collections.unmodifiableList(totalStops);
     }
 
+    /**
+     * @return an unmodifiable list of all GA trips (legs) in the network
+     */
     public List<GATrip> getGATrips() {
         return Collections.unmodifiableList(totalTrips);
     }
 
+    /**
+     * Finds the GA stop nearest to the given latitude and longitude.
+     *
+     * @param lat latitude in decimal degrees
+     * @param lon longitude in decimal degrees
+     * @return nearest GAStop or null if no stops exist
+     */
     public GAStop getNearestGAStop(double lat, double lon) {
         double minDist = Double.MAX_VALUE;
         GAStop nearest = null;
@@ -88,6 +134,12 @@ public class GABusGraph {
         return nearest;
     }
 
+    /**
+     * Attempts to find a stop by its label (code, name, or classification).
+     *
+     * @param label the stop name or code
+     * @return a GAStop if resolved, or null otherwise
+     */
     public GAStop findStop(String label) {
         if (label == null || label.isBlank()) {
             return null;
@@ -142,11 +194,15 @@ public class GABusGraph {
                     String displayName = description.isEmpty() ? stopCode : description;
                     String address = description.isEmpty() ? classification : description;
                     stop = new GAStop(displayName, lat, lon, stopCode, address);
+                    SystemLog.add_stop(stop); // ------------------------------------------------------------- LOG
                     totalStops.add(stop);
                     stopsByCode.put(codeKey, stop);
                     stopsByName.putIfAbsent(normalizeNameKey(displayName), stop);
                     stopsByName.putIfAbsent(normalizeNameKey(stopCode), stop);
                     if (!classification.isEmpty()) {
+                        if (classification.toUpperCase().equals("STATION")){
+                            SystemLog.add_stations(classification, "BUS");// ---------------------------- LOG
+                        }
                         stopsByName.putIfAbsent(normalizeNameKey(classification), stop);
                     }
                 }
@@ -155,6 +211,7 @@ public class GABusGraph {
                     stop.addRouteCode(routeCode);
                 }
                 if (!routeName.isEmpty()) {
+                    SystemLog.add_active_route(routeName); // ------------------------------------------------ LOG
                     stop.addRouteCode(routeName);
                 }
             }
@@ -258,13 +315,13 @@ public class GABusGraph {
                 
                 String baseTripId = scheduleId + "-T" + tripCounter++;
                 for (int i = 0; i < orderedStops.size() - 1; i++) {
-                    GAStop from = orderedStops.get(i);
-                    GAStop to = orderedStops.get(i + 1);
-                    // Skip self-loops
-                    // if (from.equals(to)) {
-                    //     LOGGER.warning("Skipping self-loop at stop: " + from.getName());
-                    //     continue;
-                    // }
+                    GAStop from = orderedStops.get(i); //this stop
+                    GAStop to = orderedStops.get(i + 1); //next stop
+                    //Skip self-loops
+                    if (from.equals(to)) {
+                        LOGGER.warning("Skipping self-loop at stop: " + from.getName());
+                        continue;
+                    }
                     LocalTime dep = orderedTimes.get(i);
                     LocalTime arr = orderedTimes.get(i + 1);
 
@@ -284,6 +341,7 @@ public class GABusGraph {
                     
                     tripCountMap.put(trip,tripCountMap.getOrDefault(trip,0)+1);    
                     from.addGATrip(trip);
+                    //System.out.println(from.toString()+"Has added trip "+from.getGATrips().size());
                 }
             }
         } catch (IOException e) {
@@ -296,9 +354,6 @@ public class GABusGraph {
             totalTrips.add(trip);
         }
     }
-
-
-
 
     private String buildRouteDescription(String scheduleId, String[] parts) {
         List<String> destinations = new ArrayList<>();
@@ -321,7 +376,7 @@ public class GABusGraph {
         try {
             return Trip.DayType.parseDayType(raw);
         } catch (IllegalArgumentException ex) {
-            LOGGER.log(Level.FINER, "Unknown GA day type '{0}', defaulting to WEEKDAY", raw);
+            LOGGER.log(Level.FINER, "Unknown GA day type"+raw+", defaulting to WEEKDAY", raw);
             return Trip.DayType.WEEKDAY;
         }
     }
@@ -493,6 +548,206 @@ public class GABusGraph {
         }
     }
 
+    /**
+     * Represents a single connection (trip segment) for the CSA algorithm.
+     * A connection is a directed edge between two stops at specific times.
+     */
+
+    private static class Connection implements Comparable<Connection> {
+        final int fromId;
+        final int toId;
+        final int dep; // departure minutes since midnight (0.. perhaps >1440 after adjustments)
+        final int arr; // arrival minutes (>= dep)
+        final GATrip trip;
+
+        Connection(int fromId, int toId, int dep, int arr, GATrip trip) {
+            this.fromId = fromId;
+            this.toId = toId;
+            this.dep = dep;
+            this.arr = arr;
+            this.trip = trip;
+        }
+
+        @Override
+        public int compareTo(Connection o) {
+            return Integer.compare(this.dep, o.dep);
+        }
+    }
+
+    /**
+     * Build stop index (stopToId & idToStop). Called once after loading stops.
+     */
+    private void buildStopIndex() {
+        stopToId.clear();
+        idToStop.clear();
+        for (int i = 0; i < totalStops.size(); i++) {
+            GAStop s = totalStops.get(i);
+            stopToId.put(s, i);
+            idToStop.add(s);
+        }
+    }
+
+    /**
+     * Build connection list from totalTrips. Each GATrip corresponds to a connection (leg).
+     * The departure time is minutes since midnight; if arrival < departure we assume next day
+     * and add 1440 minutes to arrival so arr >= dep.
+     */
+    private void buildConnectionsFromTrips() {
+        connections.clear();
+
+        for (GATrip t : totalTrips) {
+            GAStop from = t.getDepartureGAStop();
+            GAStop to = t.getDestinationGAStop();
+
+            Integer fromId = stopToId.get(from);
+            Integer toId = stopToId.get(to);
+            if (fromId == null || toId == null) {
+                // Shouldn't happen normally — but skip if mapping missing
+                continue;
+            }
+
+            LocalTime depTime = t.getDepartureTime();
+            if (depTime == null) continue;
+            int depMinutes = depTime.getHour() * 60 + depTime.getMinute();
+            int arrMinutes = depMinutes + t.getDuration();
+            // If arrival <= departure assume it crossed midnight and add 24h to arrival (so arr >= dep)
+            if (arrMinutes <= depMinutes) {
+                arrMinutes += 24 * 60;
+            }
+
+            connections.add(new Connection(fromId, toId, depMinutes, arrMinutes, t));
+        }
+
+        // Sort connections by departure time (ascending)
+        Collections.sort(connections);
+    }
+
+
+    /**
+     * Binary search lower bound into connections list given a departure minute.
+     */
+    private int lowerBoundConnections(int depMinutes) {
+        int left = 0;
+        int right = connections.size();
+        while (left < right) {
+            int mid = (left + right) >>> 1;
+            if (connections.get(mid).dep < depMinutes) left = mid + 1;
+            else right = mid;
+        }
+        return left;
+    }
+
+    /**
+     * Public CSA query method.
+     * Returns a GABusJourney (same type used by your RAPTOR) or null if no path found.
+     *
+     * NOTE: This CSA assumes single-day timetable; it handles per-leg midnight wrapping by
+     * adding 24h to arrival when arrival <= departure. Queries are performed by using
+     * minutes since midnight for the requested departure time.
+     *
+     * 
+     * Runs the Connection Scan Algorithm (CSA) to find the earliest
+     * arrival journey between two stops.
+     *
+     * @param sourceName name of the starting stop
+     * @param targetName name of the destination stop
+     * @param departureTime requested departure time
+     * @return a GABusJourney if found, null otherwise
+     * 
+     */
+    public GABusJourney runConnectionScan(String sourceName, String targetName, LocalTime departureTime) {
+        if (stopToId.isEmpty()) {
+            buildStopIndex();
+        }
+        if (connections.isEmpty()) {
+            buildConnectionsFromTrips();
+        }
+
+        GAStop source = findStop(sourceName);
+        GAStop target = findStop(targetName);
+        if (source == null || target == null) {
+            LOGGER.warning("Source or target stop not found for CSA: " + sourceName + " -> " + targetName);
+            return null;
+        }
+
+        Integer srcId = stopToId.get(source);
+        Integer tgtId = stopToId.get(target);
+        if (srcId == null || tgtId == null) {
+            LOGGER.warning("Source/target id missing for CSA: " + sourceName + " -> " + targetName);
+            return null;
+        }
+
+        final int nStops = idToStop.size();
+        final int INF = Integer.MAX_VALUE / 4;
+        int[] best = new int[nStops];
+        int[] prevConn = new int[nStops];
+        Arrays.fill(best, INF);
+        Arrays.fill(prevConn, -1);
+
+        int departureMinutes = departureTime.getHour() * 60 + departureTime.getMinute();
+        best[srcId] = departureMinutes;
+
+        // binary search where to start scanning connections
+        int startIdx = lowerBoundConnections(departureMinutes);
+
+        int bestTarget = INF;
+
+        for (int i = startIdx; i < connections.size(); i++) {
+            Connection c = connections.get(i);
+
+            // pruning: if the departure time of this connection is already after the best known arrival to target,
+            // no later connection can improve the target :-)
+            if (c.dep > bestTarget) {
+                break;
+            }
+
+            // can we catch this connection?
+            if (c.dep < best[c.fromId]) {
+                continue;
+            }
+
+            if (c.arr < best[c.toId]) {
+                best[c.toId] = c.arr;
+                prevConn[c.toId] = i;
+                if (c.toId == tgtId) {
+                    if (c.arr < bestTarget) {
+                        bestTarget = c.arr;
+                    }
+                }
+            }
+        }
+
+        if (best[tgtId] == INF) {
+            return null;
+        }
+
+        // reconstruct connection chain -> produce list of GATrips
+        List<GATrip> path = new ArrayList<>();
+        int curStop = tgtId;
+        Set<Integer> seenStops = new HashSet<>(); // safety to avoid cycles (shouldn't occur)
+        while (curStop != srcId && prevConn[curStop] != -1 && !seenStops.contains(curStop)) {
+            seenStops.add(curStop);
+            Connection used = connections.get(prevConn[curStop]);
+            path.add(used.trip);
+            curStop = used.fromId;
+        }
+        Collections.reverse(path);
+
+        // arrival time as LocalTime (modulo 24h)
+        int arrivalMinute = best[tgtId];
+        int arrivalMinuteMod = arrivalMinute % (24 * 60);
+        LocalTime arrivalLocal = LocalTime.of(arrivalMinuteMod / 60, arrivalMinuteMod % 60);
+
+        // build and return a GABusJourney (same constructor signature your code expects)
+        GABusJourney journey = new GABusJourney(source, target, departureTime, arrivalLocal, path);
+        return journey;
+    }
+
+
+    /**
+     * RAPTOR algorithm implementation for GA bus network.
+     * RAPTOR works in rounds, updating arrival times by scanning routes.
+     */
     public static class GARaptor {
 
         private final GABusGraph GAGraph;
@@ -507,8 +762,8 @@ public class GABusGraph {
             GAStop target = GAGraph.findStop(targetName);
 
             if (source == null || target == null) {
-                LOGGER.warning("Source or target stop not found: " + sourceName + " -> " + targetName);
-                result = new GABusGraph.Result(-1, Collections.emptyList());
+                LOGGER.log(Level.WARNING, "Source or target stop not found: {0} -> {1}", new Object[]{sourceName, targetName});
+                this.result = new GABusGraph.Result(-1, Collections.emptyList());
                 return null;
             }
 
@@ -592,31 +847,31 @@ public class GABusGraph {
             GABusGraph graph = new GABusGraph();
             System.out.println("GA graph loaded with " + graph.getGAStops().size() + " stops and "
                     + graph.getGATrips().size() + " trips.");
-            // int c = 0;
-            // System.out.println("Printing trips");
-            // for (GATrip tr : graph.getGATrips()){
-            //     c++;
-            //     System.out.println(tr.toString());
-            //     if (c>1500){break;}
-            // }
 
             GARaptor raptor = new GARaptor(graph);
-            String source = "Golden Acre";
-            String target = "Elsies River";
-            LocalTime depTime = LocalTime.of(5, 30
-            
-            
-            );
+            String source = "CAPE TOWN";
+            String target = "BELLVILLE";
+            LocalTime depTime = LocalTime.of(15, 30);
 
             System.out.println("--- Running RAPTOR ---");
             GABusJourney journey = raptor.runRaptor(source, target, depTime, 5);
-
             if (journey == null) {
                 System.out.println("No journey found between " + source + " and " + target);
             } else {
-                System.out.println("Journey found:");
+                System.out.println("RAPTOR journey found:");
                 System.out.println(journey);
             }
+
+            // Example run of CSA:
+            System.out.println("--- Running CSA (Connection Scan) ---");
+            GABusJourney csaJourney = graph.runConnectionScan(source, target, depTime);
+            if (csaJourney == null) {
+                System.out.println("CSA: No journey found between " + source + " and " + target);
+            } else {
+                System.out.println("CSA journey found:");
+                System.out.println(csaJourney);
+            }
+
         } catch (IOException e) {
             e.printStackTrace();
         }

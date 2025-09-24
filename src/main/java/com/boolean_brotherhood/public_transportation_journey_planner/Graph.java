@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
@@ -31,6 +32,7 @@ public class Graph {
     private final TaxiGraph taxiGraph;
     private final TrainGraph trainGraph;
     private final MyCitiBusGraph busGraph;
+    private final GABusGraph gaBusGraph;
 
     // Walking assumptions
     private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5;   // 500m max
@@ -43,6 +45,7 @@ public class Graph {
         this.taxiGraph = new TaxiGraph();
         this.trainGraph = new TrainGraph();
         this.busGraph   = new MyCitiBusGraph();
+        this.gaBusGraph = new GABusGraph();
     }
 
     
@@ -50,9 +53,17 @@ public class Graph {
      * Loads underlying graphs (call before buildCombinedGraph).
      */
     public void loadGraphData() throws IOException {
+        long start = System.currentTimeMillis();
+        SystemLog.log_event("GRAPH", "Loading base graph data", "INFO", Collections.singletonMap("stage", "start"));
         taxiGraph.loadData();               // your taxi loader
         trainGraph.loadTrainStops();
         trainGraph.LoadTrainTrips();
+        long elapsed = System.currentTimeMillis() - start;
+        SystemLog.log_event("GRAPH", "Loaded base graph data", "INFO", Map.of(
+                "elapsedMs", elapsed,
+                "taxiStops", taxiGraph.getTaxiStops().size(),
+                "trainStops", trainGraph.getTrainStops().size()
+        ));
     }
 
     /**
@@ -60,8 +71,15 @@ public class Graph {
      * IMPORTANT: call loadGraphData() before this.
      */
     public void buildCombinedGraph() {
+        int previousStops = totalStops.size();
+        int previousTrips = totalTrips.size();
         totalStops.clear();
         totalTrips.clear();
+
+        SystemLog.log_event("GRAPH", "Building combined graph", "INFO", Map.of(
+                "previousStops", previousStops,
+                "previousTrips", previousTrips
+        ));
 
         // collect stops and trips from each modality
         List<TaxiStop> taxiStops = taxiGraph.getTaxiStops();
@@ -84,6 +102,11 @@ public class Graph {
         totalTrips.addAll(trainTrips);
         totalTrips.addAll(busTrips);
 
+        Set<Stop> uniqueStops = new HashSet<>(totalStops);
+        for (Stop stop : uniqueStops) {
+            SystemLog.add_stop(stop);
+        }
+
         // Ensure every trip is attached to its departure stop in the unified graph:
         // (some per-mode loaders may not have added trips into Stop.TRIPS used here)
         for (Trip t : new ArrayList<>(totalTrips)) {
@@ -98,6 +121,7 @@ public class Graph {
         // Add walking transfer edges between nearby stops (cross-mode interchange)
         // avoid adding duplicates by tracking created edges (depId->destId)
         Set<String> addedWalking = new HashSet<>();
+        int walkingConnections = 0;
         for (Stop s1 : totalStops) {
             for (Stop s2 : totalStops) {
                 if (s1 == s2) continue;
@@ -113,10 +137,17 @@ public class Graph {
                         totalTrips.add(walking);
                         s1.addTrip(walking);
                         addedWalking.add(key);
+                        walkingConnections++;
                     }
                 }
             }
         }
+        SystemLog.log_event("GRAPH", "Combined graph ready", "INFO", Map.of(
+                "totalStops", totalStops.size(),
+                "uniqueStops", new HashSet<>(totalStops).size(),
+                "totalTrips", totalTrips.size(),
+                "walkingLinks", walkingConnections
+        ));
     }
 
     /**
@@ -141,6 +172,9 @@ public class Graph {
         return this.busGraph;
     }
 
+    public GABusGraph getGABusGraph(){
+        return this.gaBusGraph;
+    }
 
     /**
      * Find stop by name (case-insensitive).
@@ -175,6 +209,22 @@ public class Graph {
          * - Untimed trips (departureTime == null): considered immediate and take 'duration' minutes.
          */
         public List<Trip> compute(Stop source, Stop target, LocalTime departureTime, int maxRounds) {
+            SystemLog.log_event("GRAPH", "RAPTOR compute start", "INFO", Map.of(
+                    "source", source != null ? source.getName() : "null",
+                    "target", target != null ? target.getName() : "null",
+                    "maxRounds", maxRounds,
+                    "departure", departureTime != null ? departureTime.toString() : "null"
+            ));
+            if (source == null || target == null) {
+                SystemLog.log_event("GRAPH", "RAPTOR compute missing stop", "WARN", Map.of(
+                        "source", source != null ? source.getName() : "null",
+                        "target", target != null ? target.getName() : "null"
+                ));
+                return Collections.emptyList();
+            }
+            if (departureTime == null) {
+                departureTime = LocalTime.MIN;
+            }
             // earliest arrival per stop (LocalTime)
             Map<Stop, LocalTime> earliestArrival = new HashMap<>();
             for (Stop stop : stops) earliestArrival.put(stop, LocalTime.MAX);
@@ -228,6 +278,13 @@ public class Graph {
                 cur = t.getDepartureStop();
             }
             Collections.reverse(journey);
+            LocalTime arrivalAtTarget = earliestArrival.get(target);
+            SystemLog.log_event("GRAPH", "RAPTOR compute completed", journey.isEmpty() ? "WARN" : "INFO", Map.of(
+                    "source", source.getName(),
+                    "target", target.getName(),
+                    "legs", journey.size(),
+                    "arrival", arrivalAtTarget != null ? arrivalAtTarget.toString() : "null"
+            ));
             return journey;
         }
     }
