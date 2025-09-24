@@ -205,7 +205,7 @@ public class GABusGraph {
             LOGGER.log(Level.FINE, "Schedule resource not found: {0}", resourcePath);
             return;
         }
-
+        Map<GATrip,Integer> tripCountMap = new HashMap<>();
         try (BufferedReader br = reader) {
             String headerLine = br.readLine();
             if (headerLine == null) {
@@ -215,6 +215,7 @@ public class GABusGraph {
             String[] headerStops = headerLine.split(",", -1);
             String line;
             int tripCounter = 1;
+            
 
             while ((line = br.readLine()) != null) {
                 if (line.isBlank()) {
@@ -249,14 +250,21 @@ public class GABusGraph {
                     orderedTimes.add(departureTime);
                 }
 
+
                 if (orderedStops.size() < 2) {
                     continue;
                 }
 
+                
                 String baseTripId = scheduleId + "-T" + tripCounter++;
                 for (int i = 0; i < orderedStops.size() - 1; i++) {
                     GAStop from = orderedStops.get(i);
                     GAStop to = orderedStops.get(i + 1);
+                    // Skip self-loops
+                    // if (from.equals(to)) {
+                    //     LOGGER.warning("Skipping self-loop at stop: " + from.getName());
+                    //     continue;
+                    // }
                     LocalTime dep = orderedTimes.get(i);
                     LocalTime arr = orderedTimes.get(i + 1);
 
@@ -273,7 +281,8 @@ public class GABusGraph {
                     trip.setTripID(baseTripId + "-S" + (i + 1));
                     trip.setRouteName(routeDescription);
 
-                    totalTrips.add(trip);
+                    
+                    tripCountMap.put(trip,tripCountMap.getOrDefault(trip,0)+1);    
                     from.addGATrip(trip);
                 }
             }
@@ -281,7 +290,15 @@ public class GABusGraph {
             LOGGER.log(Level.SEVERE, "Error reading GA schedule {0}: {1}", new Object[]{scheduleId, e.getMessage()});
             LOGGER.log(Level.FINEST, "Exception details", e);
         }
+
+        
+    for (GATrip trip : tripCountMap.keySet()) {
+            totalTrips.add(trip);
+        }
     }
+
+
+
 
     private String buildRouteDescription(String scheduleId, String[] parts) {
         List<String> destinations = new ArrayList<>();
@@ -495,11 +512,11 @@ public class GABusGraph {
                 return null;
             }
 
-            Map<GAStop, LocalTime> bestArrival = new HashMap<>();
+            Map<GAStop, Integer> bestArrival = new HashMap<>();
             for (GAStop stop : GAGraph.getGAStops()) {
-                bestArrival.put(stop, LocalTime.MAX);
+                bestArrival.put(stop, Integer.MAX_VALUE);
             }
-            bestArrival.put(source, departureTime);
+            bestArrival.put(source, 0);
 
             Map<GAStop, GAStop> previousStop = new HashMap<>();
             Map<GAStop, GATrip> previousTrip = new HashMap<>();
@@ -513,15 +530,17 @@ public class GABusGraph {
                 for (GAStop marked : markedStops) {
                     for (GATrip trip : marked.getGATrips()) {
                         LocalTime depTime = trip.getDepartureTime();
-                        if (depTime.isBefore(bestArrival.get(marked))) {
+                        int tripDepMinutes = getMinutesSinceStart(departureTime, depTime);
+
+                        if (tripDepMinutes < bestArrival.get(marked)) {
                             continue;
                         }
 
-                        LocalTime arrTime = depTime.plusMinutes(trip.getDuration());
+                        int arrMinutes = tripDepMinutes + trip.getDuration();
                         GAStop dest = (GAStop) trip.getDestinationStop();
 
-                        if (arrTime.isBefore(bestArrival.get(dest))) {
-                            bestArrival.put(dest, arrTime);
+                        if (arrMinutes < bestArrival.get(dest)) {
+                            bestArrival.put(dest, arrMinutes);
                             previousStop.put(dest, marked);
                             previousTrip.put(dest, trip);
                             nextMarkedStops.add(dest);
@@ -535,37 +554,59 @@ public class GABusGraph {
                 markedStops = nextMarkedStops;
             }
 
-            LocalTime arrival = bestArrival.get(target);
-            if (arrival == null || arrival.equals(LocalTime.MAX)) {
+            Integer arrivalMinutes = bestArrival.get(target);
+            if (arrivalMinutes == null || arrivalMinutes == Integer.MAX_VALUE) {
                 result = new GABusGraph.Result(-1, Collections.emptyList());
                 return null;
             }
-
+            LocalTime arrival = departureTime.plusMinutes(arrivalMinutes);
             List<GATrip> trips = new ArrayList<>();
             GAStop step = target;
-            while (previousStop.containsKey(step)) {
+            Set<GAStop> visited = new HashSet<>();
+            while (previousStop.containsKey(step) && !visited.contains(step)) {
+                visited.add(step);
                 GATrip trip = previousTrip.get(step);
                 trips.add(trip);
                 step = previousStop.get(step);
             }
+
             Collections.reverse(trips);
 
             GABusJourney journey = new GABusJourney(source, target, departureTime, arrival, trips);
             result = new GABusGraph.Result((int) journey.getTotalDurationMinutes(), new ArrayList<>(journey.getTrips()));
             return journey;
         }
-    }
 
+        private int getMinutesSinceStart(final LocalTime startTime,final LocalTime currentTime) {
+            if (currentTime.isBefore(startTime)) {
+                // Assume next day
+                return (int) Duration.between(startTime, LocalTime.MAX).toMinutes() + 
+                    (int) Duration.between(LocalTime.MIN, currentTime).toMinutes() + 1;
+            }
+            return (int) Duration.between(startTime, currentTime).toMinutes();
+         }
+    }
+    
     public static void main(String[] args) {
         try {
             GABusGraph graph = new GABusGraph();
             System.out.println("GA graph loaded with " + graph.getGAStops().size() + " stops and "
                     + graph.getGATrips().size() + " trips.");
+            // int c = 0;
+            // System.out.println("Printing trips");
+            // for (GATrip tr : graph.getGATrips()){
+            //     c++;
+            //     System.out.println(tr.toString());
+            //     if (c>1500){break;}
+            // }
 
             GARaptor raptor = new GARaptor(graph);
-            String source = "Bellville";
-            String target = "Golden Acre";
-            LocalTime depTime = LocalTime.of(8, 0);
+            String source = "Golden Acre";
+            String target = "Elsies River";
+            LocalTime depTime = LocalTime.of(5, 30
+            
+            
+            );
 
             System.out.println("--- Running RAPTOR ---");
             GABusJourney journey = raptor.runRaptor(source, target, depTime, 5);

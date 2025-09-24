@@ -21,14 +21,26 @@ public class GATrip extends Trip {
     public void setRouteName(String rn) { this.routeName = rn; }
 
     // Convenience casts
-    public GAStop getDepartureMyCitiStop() { return (GAStop) getDepartureStop(); }
-    public GAStop getDestinationMyCitiStop() { return (GAStop) getDestinationStop(); }
+    public GAStop getDepartureGAStop() { return (GAStop) getDepartureStop(); }
+    public GAStop getDestinationGAStop() { return (GAStop) getDestinationStop(); }
 
-    
+    @Override
+    public boolean equals(Object o){
+        if (this == o) return true;
+        if (!(o instanceof Trip)) return false;
+        GATrip other = (GATrip) o;
+        return (
+            (this.routeName.equals(other.getRouteName())) &&
+            (this.getDayType() == other.getDayType()) && 
+            (this.getDepartureTime().equals(other.getDepartureTime())) &&
+            (this.getDepartureGAStop().equals(other.getDepartureGAStop())) &&                 
+            (this.getDestinationGAStop().equals(other.getDestinationGAStop()))
+                );
+    }
 
     @Override
     public String toString() {
-        return String.format("MyCitiTrip[%s -> %s, route='%s', id=%s, dep=%s]",
+        return String.format("Golden Arrows Trip [ %s -> %s, route='%s', id=%s, dep=%s]",
                 getDepartureStop().getName(),
                 getDestinationStop().getName(),
                 routeName,

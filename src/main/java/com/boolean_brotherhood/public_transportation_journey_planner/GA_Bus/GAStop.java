@@ -56,17 +56,26 @@ public class GAStop extends BusStop{
         trips.sort(Comparator.comparing(GATrip::getDepartureTime));
     }
 
+    public boolean equals(GAStop other){
+        return (
+            (this.getLatitude() == other.getLatitude()) &&
+            (this.getLongitude() == other.getLongitude()) &&
+            (this.getName().equals(other.getName())) &&
+            (this.getStopCode().equals(other.getStopCode()))
+        );
+    }
+
     @Override
     public String toString() {
         return String.format(
-                "Golden Arrow Stop{name='%s', stopCode='%s', company='%s', Lat=%.6f, Lon=%.6f, routes=%s, trips=%d}",
+                "Golden Arrow Stop{name='%s', stopCode='%s', company='%s', Lat=%.6f, Lon=%.6f, trips=%d}",
                 getName(),
                 getStopCode(),
                 COMPANY,
                 getLatitude(),
                 getLongitude(),
-                getRouteCodes(),
                 getTrips().size()
         );
-    }
+}
+
 }

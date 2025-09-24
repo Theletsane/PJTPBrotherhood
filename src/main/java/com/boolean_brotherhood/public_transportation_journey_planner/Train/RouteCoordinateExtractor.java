@@ -8,7 +8,6 @@
  * Author: Boolean Brotherhood
  * Date: 2025
  */
-
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
 import java.io.BufferedReader;
