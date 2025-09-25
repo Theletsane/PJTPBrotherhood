@@ -19,7 +19,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,8 +27,8 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -59,9 +58,9 @@ public class AdminController {
     @GetMapping("/list")
     public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
         SystemLog.log_endpoint("/api/admin/list");
-        String targetPath = DATA_PATH + (subPath != null ? subPath : "");
+        String targetPath = (subPath != null ? subPath : "");
         Resource resource = new ClassPathResource(targetPath);
-
+        
         if (!resource.exists()) {
             SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
                     "targetPath", targetPath
@@ -91,7 +90,11 @@ public class AdminController {
     @GetMapping("/file")
     public ResponseEntity<String> readFile(@RequestParam String filePath) throws IOException {
         SystemLog.log_endpoint("/api/admin/file");
-        Resource resource = new ClassPathResource(DATA_PATH + filePath);
+        if (filePath.startsWith("CapeTownTransitData/")) {
+            Resource resource = new ClassPathResource(filePath);
+        } else {
+            Resource resource = new ClassPathResource(DATA_PATH + filePath);
+        }
 
         if (!resource.exists()) {
             SystemLog.log_event("ADMIN", "Requested data file not found", "WARN", Map.of(
@@ -151,17 +154,26 @@ public class AdminController {
         ));
         return metrics;
     }
-    
+        
     @GetMapping("/GetFileInUse")
-    public Map<String, String> getFilesInUse() {
+    public Map<String, List<String>> getFilesInUse() {
         SystemLog.log_endpoint("/api/admin/GetFileInUse");
         Map<String, String> usage = DataFilesRegistry.getUsageLogs();
-        SystemLog.log_event("ADMIN", "Fetched files-in-use registry", "INFO", Map.of(
-                "entries", usage.size()
-        ));
-        return usage;
-    }
+        Map<String, List<String>> grouped = new HashMap<>();
 
+        for (Map.Entry<String, String> entry : usage.entrySet()) {
+            String filePath = entry.getKey();
+            String graphType = entry.getValue();
+
+            grouped.computeIfAbsent(graphType, k -> new ArrayList<>()).add(filePath);
+        }
+
+        SystemLog.log_event("ADMIN", "Fetched files-in-use registry (grouped)", "INFO", Map.of(
+                "groups", grouped.size()
+        ));
+
+        return grouped;
+    }
     @GetMapping("/MostRecentCall")
     public List<Map<String, Object>> getMostRecentCalls() {
         SystemLog.log_endpoint("/api/admin/MostRecentCall");
