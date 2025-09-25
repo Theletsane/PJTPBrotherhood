@@ -1,17 +1,4 @@
-﻿package com.boolean_brotherhood.public_transportation_journey_planner;
-
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
+package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.IOException;
 import java.time.LocalTime;
@@ -27,17 +14,31 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
+
 /**
- * Unified multimodal graph that merges taxi, train, and bus networks and exposes
+ * Unified multimodal graph that merges taxi, train, and bus networks and
+ * exposes
  * multimodal RAPTOR journey planning.
  */
 public class Graph {
 
-    private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5;  // 500 metres
-    private static final double WALKING_SPEED_KM_PER_MIN = 0.0833;     // ~5 km/h
+    private static final double WALKING_DISTANCE_THRESHOLD_KM = 0.5; // 500 metres
+    private static final double WALKING_SPEED_KM_PER_MIN = 0.0833; // ~5 km/h
     private static final int MINUTES_PER_DAY = 24 * 60;
 
-    public enum Mode { TRAIN, MYCITI, GA, TAXI, WALKING }
+    public enum Mode {
+        TRAIN, MYCITI, GA, TAXI, WALKING
+    }
 
     private final List<Stop> totalStops = new ArrayList<>();
     private final List<Trip> totalTrips = new ArrayList<>();
@@ -70,8 +71,7 @@ public class Graph {
                 "myCiTiStops", myCitiBusGraph.getMyCitiStops().size(),
                 "myCiTiTrips", myCitiBusGraph.getMyCitiTrips().size(),
                 "gaStops", gaBusGraph.getGAStops().size(),
-                "gaTrips", gaBusGraph.getGATrips().size()
-        ));
+                "gaTrips", gaBusGraph.getGATrips().size()));
     }
 
     public void buildCombinedGraph() {
@@ -93,8 +93,7 @@ public class Graph {
 
         SystemLog.log_event("GRAPH", "Combined graph built", "INFO", Map.of(
                 "totalStops", totalStops.size(),
-                "totalTrips", totalTrips.size()
-        ));
+                "totalTrips", totalTrips.size()));
     }
 
     private void addStops(List<? extends Stop> stops) {
@@ -145,8 +144,10 @@ public class Graph {
                 Trip reverse = new Trip(to, from, durationMinutes, Trip.DayType.WEEKDAY);
                 reverse.setMode("Walking");
 
-                String forwardKey = walkway.getDepartureStop().hashCode() + ":" + walkway.getDestinationStop().hashCode();
-                String reverseKey = reverse.getDepartureStop().hashCode() + ":" + reverse.getDestinationStop().hashCode();
+                String forwardKey = walkway.getDepartureStop().hashCode() + ":"
+                        + walkway.getDestinationStop().hashCode();
+                String reverseKey = reverse.getDepartureStop().hashCode() + ":"
+                        + reverse.getDestinationStop().hashCode();
 
                 if (added.add(forwardKey)) {
                     totalTrips.add(walkway);
@@ -162,8 +163,7 @@ public class Graph {
         }
 
         SystemLog.log_event("GRAPH", "Walking transfers prepared", "DEBUG", Map.of(
-                "connections", walkingConnections
-        ));
+                "connections", walkingConnections));
     }
 
     public List<Stop> getStops() {
@@ -194,7 +194,8 @@ public class Graph {
         return new Raptor(filteredStops, filteredTrips);
     }
 
-    public List<Trip> runRaptor(EnumSet<Mode> modes, String from, String to, LocalTime departure, int maxRounds, Trip.DayType dayType) {
+    public List<Trip> runRaptor(EnumSet<Mode> modes, String from, String to, LocalTime departure, int maxRounds,
+            Trip.DayType dayType) {
         Stop source = findStopByName(from);
         Stop target = findStopByName(to);
         if (source == null || target == null) {
@@ -204,16 +205,20 @@ public class Graph {
         return raptor.compute(source, target, departure, maxRounds, dayType);
     }
 
-    public List<Trip> runTrainAndMyCitiRaptor(String from, String to, LocalTime departure, int maxRounds, Trip.DayType dayType) {
+    public List<Trip> runTrainAndMyCitiRaptor(String from, String to, LocalTime departure, int maxRounds,
+            Trip.DayType dayType) {
         return runRaptor(EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.WALKING), from, to, departure, maxRounds, dayType);
     }
 
-    public List<Trip> runTrainAndGaRaptor(String from, String to, LocalTime departure, int maxRounds, Trip.DayType dayType) {
+    public List<Trip> runTrainAndGaRaptor(String from, String to, LocalTime departure, int maxRounds,
+            Trip.DayType dayType) {
         return runRaptor(EnumSet.of(Mode.TRAIN, Mode.GA, Mode.WALKING), from, to, departure, maxRounds, dayType);
     }
 
-    public List<Trip> runAllModesRaptor(String from, String to, LocalTime departure, int maxRounds, Trip.DayType dayType) {
-        return runRaptor(EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.TAXI, Mode.WALKING), from, to, departure, maxRounds, dayType);
+    public List<Trip> runAllModesRaptor(String from, String to, LocalTime departure, int maxRounds,
+            Trip.DayType dayType) {
+        return runRaptor(EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.TAXI, Mode.WALKING), from, to, departure,
+                maxRounds, dayType);
     }
 
     public Stop findStopByName(String name) {
@@ -295,7 +300,8 @@ public class Graph {
                 outgoing.computeIfAbsent(departure, key -> new ArrayList<>()).add(trip);
             }
             for (List<Trip> legs : outgoing.values()) {
-                legs.sort(Comparator.comparing(t -> t.getDepartureTime() == null ? LocalTime.MIN : t.getDepartureTime()));
+                legs.sort(
+                        Comparator.comparing(t -> t.getDepartureTime() == null ? LocalTime.MIN : t.getDepartureTime()));
             }
         }
 
@@ -303,7 +309,8 @@ public class Graph {
             return compute(source, target, departureTime, maxRounds, null);
         }
 
-        public List<Trip> compute(Stop source, Stop target, LocalTime departureTime, int maxRounds, Trip.DayType dayType) {
+        public List<Trip> compute(Stop source, Stop target, LocalTime departureTime, int maxRounds,
+                Trip.DayType dayType) {
             if (source == null || target == null) {
                 return Collections.emptyList();
             }
@@ -399,12 +406,35 @@ public class Graph {
         }
     }
 
-    public List<TaxiStop> getTaxiStops() { return taxiGraph.getTaxiStops(); }
-    public TaxiGraph getTaxiGraph() { return taxiGraph; }
-    public TaxiStop getNearestTaxiStart(double lat, double lon) { return taxiGraph.getNearestTaxiStop(lat, lon); }
-    public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int max) { return taxiGraph.getNearestTaxiStops(lat, lon, max); }
-    public TrainStop getNearestTrainStart(double lat, double lon) { return trainGraph.getNearestTrainStop(lat, lon); }
-    public TrainGraph getTrainGraph() { return trainGraph; }
-    public MyCitiBusGraph getMyCitiBusGraph() { return myCitiBusGraph; }
-    public GABusGraph getGABusGraph() { return gaBusGraph; }
+    public List<TaxiStop> getTaxiStops() {
+        return taxiGraph.getTaxiStops();
+    }
+
+    public TaxiGraph getTaxiGraph() {
+        return taxiGraph;
+    }
+
+    public TaxiStop getNearestTaxiStart(double lat, double lon) {
+        return taxiGraph.getNearestTaxiStop(lat, lon);
+    }
+
+    public List<TaxiStop> getNearestTaxiStops(double lat, double lon, int max) {
+        return taxiGraph.getNearestTaxiStops(lat, lon, max);
+    }
+
+    public TrainStop getNearestTrainStart(double lat, double lon) {
+        return trainGraph.getNearestTrainStop(lat, lon);
+    }
+
+    public TrainGraph getTrainGraph() {
+        return trainGraph;
+    }
+
+    public MyCitiBusGraph getMyCitiBusGraph() {
+        return myCitiBusGraph;
+    }
+
+    public GABusGraph getGABusGraph() {
+        return gaBusGraph;
+    }
 }

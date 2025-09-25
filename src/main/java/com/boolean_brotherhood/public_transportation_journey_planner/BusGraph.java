@@ -1,11 +1,4 @@
-﻿package com.boolean_brotherhood.public_transportation_journey_planner;
-
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
+package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.IOException;
 import java.time.LocalTime;
@@ -22,6 +15,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
 
 /**
  * Combined bus graph that merges MyCiTi and Golden Arrow data and exposes
@@ -81,7 +79,8 @@ public class BusGraph {
         addTrips(myCitiGraph.getMyCitiTrips());
         addTrips(gaGraph.getGATrips());
 
-        LOGGER.info(() -> String.format("Combined bus graph ready: %d stops, %d trips", combinedStops.size(), combinedTrips.size()));
+        LOGGER.info(() -> String.format("Combined bus graph ready: %d stops, %d trips", combinedStops.size(),
+                combinedTrips.size()));
     }
 
     private void addStops(List<? extends Stop> stops) {
@@ -132,7 +131,8 @@ public class BusGraph {
         return connectionRouter;
     }
 
-    public RouterResult runRaptor(Stop source, Stop target, LocalTime departureTime, int maxRounds, Trip.DayType dayType) {
+    public RouterResult runRaptor(Stop source, Stop target, LocalTime departureTime, int maxRounds,
+            Trip.DayType dayType) {
         return raptorRouter.runRaptor(source, target, departureTime, maxRounds, dayType);
     }
 
@@ -179,11 +179,13 @@ public class BusGraph {
                 outgoing.computeIfAbsent(departure, key -> new ArrayList<>()).add(trip);
             }
             for (List<Trip> legs : outgoing.values()) {
-                legs.sort(Comparator.comparing(trip -> trip.getDepartureTime() == null ? LocalTime.MIN : trip.getDepartureTime()));
+                legs.sort(Comparator
+                        .comparing(trip -> trip.getDepartureTime() == null ? LocalTime.MIN : trip.getDepartureTime()));
             }
         }
 
-        public RouterResult runRaptor(Stop source, Stop target, LocalTime requestedDeparture, int maxRounds, Trip.DayType dayType) {
+        public RouterResult runRaptor(Stop source, Stop target, LocalTime requestedDeparture, int maxRounds,
+                Trip.DayType dayType) {
             if (source == null || target == null || !outgoing.containsKey(source)) {
                 return null;
             }
@@ -324,7 +326,8 @@ public class BusGraph {
             connections.sort(Comparator.naturalOrder());
         }
 
-        public RouterResult runConnectionScan(Stop source, Stop target, LocalTime requestedDeparture, Trip.DayType dayType) {
+        public RouterResult runConnectionScan(Stop source, Stop target, LocalTime requestedDeparture,
+                Trip.DayType dayType) {
             Integer srcId = stopToId.get(source);
             Integer tgtId = stopToId.get(target);
             if (srcId == null || tgtId == null) {
