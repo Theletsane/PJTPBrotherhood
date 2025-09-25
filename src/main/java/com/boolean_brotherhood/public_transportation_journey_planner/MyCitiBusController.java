@@ -34,24 +34,13 @@ public class MyCitiBusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
+        
         SystemLog.log_endpoint("/api/myciti/metrics");  
         Map<String, Object> metrics = new HashMap<>();
-        
-        // Get base metrics from graph
-        Map<String, Long> myCitiMetrics = graph.getMetrics();
-        for(String key: myCitiMetrics.keySet()){
-            metrics.put(key, myCitiMetrics.get(key));
+        Map<String, Long> MyCitimetrics = graph.getMetrics();
+        for(String key: MyCitimetrics.keySet()){
+            metrics.put(key, MyCitimetrics.get(key));
         }
-        
-        // Ensure trip and stop counts are included
-        List<MyCitiStop> stops = graph.getMyCitiStops();
-        List<MyCitiTrip> trips = graph.getMyCitiTrips();
-        
-        metrics.put("totalStops", stops != null ? stops.size() : 0);
-        metrics.put("totalTrips", trips != null ? trips.size() : 0);
-        metrics.put("stopsLoaded", stops != null && !stops.isEmpty());
-        metrics.put("tripsLoaded", trips != null && !trips.isEmpty());
-        
         return metrics;
     }
 

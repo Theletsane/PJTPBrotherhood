@@ -449,7 +449,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def run_monitors(args: argparse.Namespace) -> List[Dict[str, Any]]:
-    targets = args.targets or ["https://pjtp-brotherhood.up.railway.app"]
+    targets = args.targets or ["http://localhost:8080"]
     labels = args.labels or []
     results: List[Dict[str, Any]] = []
 
