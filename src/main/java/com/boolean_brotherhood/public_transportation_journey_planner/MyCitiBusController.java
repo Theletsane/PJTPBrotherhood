@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +18,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.M
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/myciti")
 public class MyCitiBusController {

@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,9 +16,8 @@ import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABu
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
 
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/GA")
 public class GABusController {
