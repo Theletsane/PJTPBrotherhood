@@ -36,7 +36,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.Dat
 
 public class AdminController {
 
-    private static final String DATA_PATH = "";
+    private static final String DATA_PATH = "CapeTownTransitData/";
 
     private final TrainController trainController;
     private final TaxiController taxiController;
