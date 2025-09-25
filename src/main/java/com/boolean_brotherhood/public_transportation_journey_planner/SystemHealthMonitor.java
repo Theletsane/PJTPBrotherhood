@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
@@ -36,6 +37,9 @@ public class SystemHealthMonitor {
     
     @Autowired(required = false)
     private MyCitiBusGraph busGraph;
+    
+    @Autowired(required = false)
+    private GABusGraph gaBusGraph;
     
     @Autowired(required = false)
     private TaxiGraph taxiGraph;
@@ -185,11 +189,16 @@ public class SystemHealthMonitor {
         GraphHealth taxiHealth = checkTaxiGraph();
         graphStatuses.put("taxi", taxiHealth);
         graphHealthStatus.put("taxi", taxiHealth);
+
+        GraphHealth gaHealth = checkGABusGraph();
+        graphStatuses.put("ga", gaHealth);
+        graphHealthStatus.put("ga", gaHealth);
         
         // Calculate overall system health
         boolean allGraphsHealthy = trainHealth.getStatus().equals("HEALTHY") &&
                                   busHealth.getStatus().equals("HEALTHY") &&
-                                  taxiHealth.getStatus().equals("HEALTHY");
+                                  taxiHealth.getStatus().equals("HEALTHY") &&
+                                  gaHealth.getStatus().equals("HEALTHY");
         
         systemHealthy.set(allGraphsHealthy);
         
@@ -335,6 +344,70 @@ public class SystemHealthMonitor {
         } catch (Exception e) {
             health.setStatus("CRITICAL");
             health.setErrorMessage("Exception during bus graph check: " + e.getMessage());
+            health.addIssue("Unexpected error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
+        
+        health.setLastChecked(LocalDateTime.now());
+        return health;
+    }
+
+
+    /**
+     * Checks the health of the GA Bus Graph
+     */
+    private GraphHealth checkGABusGraph() {
+        GraphHealth health = new GraphHealth("GABusGraph");
+        
+        try {
+            if (gaBusGraph == null) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("GABusGraph not injected/loaded");
+                health.addIssue("GABusGraph bean is null - dependency injection failed");
+                return health;
+            }
+            
+            health.setLoaded(true);
+            
+            List<?> stops = gaBusGraph.getGAStops();
+            List<?> trips = gaBusGraph.getGATrips();
+            
+            if (stops == null || stops.isEmpty()) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("No GA bus stops loaded");
+                health.addIssue("GA bus stops list is empty or null");
+            } else if (trips == null || trips.isEmpty()) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("No GA bus trips loaded");
+                health.addIssue("GA bus trips list is empty or null");
+            } else {
+                health.setHasData(true);
+                health.setStopCount(stops.size());
+                health.setTripCount(trips.size());
+                
+                if (stops.size() < 10) {
+                    health.setStatus("WARNING");
+                    health.addIssue("Suspiciously low number of GA bus stops: " + stops.size());
+                } else if (trips.size() < 50) {
+                    health.setStatus("WARNING");
+                    health.addIssue("Suspiciously low number of GA bus trips: " + trips.size());
+                } else {
+                    health.setStatus("HEALTHY");
+                }
+                
+                try {
+                    Map<String, Long> metrics = gaBusGraph.getMetrics();
+                    if (metrics.containsKey("stopsLoadTimeMs")) {
+                        health.setLoadTimeMs(metrics.get("stopsLoadTimeMs"));
+                    } else if (metrics.containsKey("tripsLoadTimeMs")) {
+                        health.setLoadTimeMs(metrics.get("tripsLoadTimeMs"));
+                    }
+                } catch (Exception e) {
+                    health.addIssue("Error retrieving GA bus graph metrics: " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            health.setStatus("CRITICAL");
+            health.setErrorMessage("Exception during GA bus graph check: " + e.getMessage());
             health.addIssue("Unexpected error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
         

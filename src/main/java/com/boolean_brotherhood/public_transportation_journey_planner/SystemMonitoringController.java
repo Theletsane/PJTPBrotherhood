@@ -10,6 +10,7 @@
 
 package com.boolean_brotherhood.public_transportation_journey_planner;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -179,6 +180,21 @@ public class SystemMonitoringController {
     }
 
     /**
+     * Get recent request performance metrics
+     */
+    @GetMapping("/performance")
+    public ResponseEntity<Map<String, Object>> getPerformanceSummary() {
+        SystemLog.log_endpoint("/api/monitor/performance");
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("generatedAt", java.time.LocalDateTime.now().toString());
+        payload.put("systemHealthy", healthMonitor.isSystemHealthy());
+        payload.put("overview", PerformanceMetricsRegistry.getOverview());
+        payload.put("perEndpoint", PerformanceMetricsRegistry.getEndpointSummaries());
+        payload.put("recent", PerformanceMetricsRegistry.getRecentSamples());
+        return ResponseEntity.ok(payload);
+    }
+
+    /**
      * Force a manual health check (useful for debugging)
      */
     @PostMapping("/health/check")
@@ -204,17 +220,18 @@ public class SystemMonitoringController {
             Map<String, Object> summary = healthMonitor.getSystemSummary();
             
             // Add additional monitoring-specific stats
-            Map<String, Object> stats = Map.of(
-                "systemStatus", summary.get("overallStatus"),
-                "uptime", summary.get("uptime"),
-                "totalHealthChecks", summary.get("totalHealthChecks"),
-                "criticalErrors", summary.get("criticalErrors"),
-                "activeAlerts", summary.get("activeAlerts"),
-                "memory", summary.get("memory"),
-                "graphStatuses", summary.get("graphStatuses"),
-                "lastCheckTime", java.time.LocalDateTime.now().toString()
-            );
-            
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("systemStatus", summary.get("overallStatus"));
+            stats.put("uptime", summary.get("uptime"));
+            stats.put("totalHealthChecks", summary.get("totalHealthChecks"));
+            stats.put("criticalErrors", summary.get("criticalErrors"));
+            stats.put("activeAlerts", summary.get("activeAlerts"));
+            stats.put("memory", summary.get("memory"));
+            stats.put("graphStatuses", summary.get("graphStatuses"));
+            stats.put("lastCheckTime", java.time.LocalDateTime.now().toString());
+            stats.put("performanceOverview", PerformanceMetricsRegistry.getOverview());
+            stats.put("recentPerformance", PerformanceMetricsRegistry.getRecentSamples());
+
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

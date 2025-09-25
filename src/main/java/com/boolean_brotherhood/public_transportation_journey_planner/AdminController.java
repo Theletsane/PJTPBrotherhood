@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -40,16 +41,19 @@ public class AdminController {
     private final TrainController trainController;
     private final TaxiController taxiController;
     private final MyCitiBusController busController;
+    private final GABusController gaBusController;
 
     @Autowired
     public AdminController(
             TrainController trainController,
             TaxiController taxiController,
-            MyCitiBusController busController
+            MyCitiBusController busController,
+            GABusController gaBusController
     ) {
         this.trainController = trainController;
         this.taxiController = taxiController;
         this.busController = busController;
+        this.gaBusController = gaBusController;
     }
 
     /**
@@ -145,6 +149,7 @@ public class AdminController {
         metrics.put("train", trainController.getMetrics());
         metrics.put("taxi", taxiController.getMetrics());
         metrics.put("bus", busController.getMetrics());
+        metrics.put("ga", gaBusController.getMetrics());
         SystemLog.log_event("ADMIN", "Collected subsystem metrics", "INFO", Map.of(
                 "sections", metrics.keySet().size()
         ));
@@ -169,6 +174,18 @@ public class AdminController {
                 "count", recent.size()
         ));
         return recent;
+    }
+
+    @GetMapping("/performance")
+    public Map<String, Object> getPerformanceMetrics() {
+        SystemLog.log_endpoint("/api/admin/performance");
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("generatedAt", LocalDateTime.now().toString());
+        payload.put("overview", PerformanceMetricsRegistry.getOverview());
+        payload.put("perEndpoint", PerformanceMetricsRegistry.getEndpointSummaries());
+        payload.put("recent", PerformanceMetricsRegistry.getRecentSamples());
+        SystemLog.log_event("ADMIN", "Collected performance metrics", "INFO", Map.of("samples", ((java.util.List<?>) payload.get("recent")).size()));
+        return payload;
     }
 
     @GetMapping("/systemLogs")
