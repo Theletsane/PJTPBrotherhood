@@ -230,8 +230,8 @@ public final class MyCitiBusGraph{
     
     public Map<String, Long> getMetrics() {
         Map<String, Long> metrics = new HashMap<>();
-        metrics.put("totalStops", (long) totalStops.size());
-        metrics.put("totalTrips", (long) totalTrips.size());
+        metrics.put("stopCount", (long) (getMyCitiStops() != null ? getMyCitiStops().size() : 0));
+        metrics.put("tripCount", (long) (getMyCitiTrips() != null ? getMyCitiTrips().size() : 0));
         metrics.put("malformedStopLines", (long) malformedStopLines);
         metrics.put("missingTripStops", (long) missingTripStops);
         metrics.put("stopsLoadTimeMs", stopsLoadTimeMs);

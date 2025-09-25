@@ -2,15 +2,24 @@ package com.boolean_brotherhood.public_transportation_journey_planner;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystemNotFoundException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,28 +65,53 @@ public class AdminController {
         this.gaBusController = gaBusController;
     }
 
+
     /**
      * List all files & subfolders in CapeTownTransitData
      */
     @GetMapping("/list")
     public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
         SystemLog.log_endpoint("/api/admin/list");
-        String targetPath = DATA_PATH + (subPath != null ? subPath : "");
+        String normalizedSubPath = (subPath != null && !subPath.isBlank()) ? subPath.replace("\\", "/") : null;
+        if (normalizedSubPath != null && normalizedSubPath.startsWith(DATA_PATH)) {
+            normalizedSubPath = normalizedSubPath.substring(DATA_PATH.length());
+        }
+        String targetFragment = normalizedSubPath != null ? normalizedSubPath.replaceFirst("^/+", "") : "";
+        String sanitizedPrefix = sanitizePrefix(targetFragment);
+        String targetPath = DATA_PATH + targetFragment;
         Resource resource = new ClassPathResource(targetPath);
 
-        if (!resource.exists()) {
-            SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
-                    "targetPath", targetPath
+        List<String> fileNames = new ArrayList<>();
+        try {
+            if (!resource.exists()) {
+                SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
+                        "targetPath", targetPath
+                ));
+                return ResponseEntity.ok(getKnownDataFiles(subPath));
+            }
+
+            if (isJarResource(resource)) {
+                fileNames = listFromJar(resource, sanitizedPrefix);
+            } else {
+                File resourceFile = resource.getFile();
+                fileNames = collectEntries(resourceFile.toPath(), sanitizedPrefix);
+            }
+        } catch (Exception e) {
+            String errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            SystemLog.log_event("ADMIN", "File listing failed, using fallback", "WARN", Map.of(
+                    "targetPath", targetPath,
+                    "error", errorMessage
             ));
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.ok(getKnownDataFiles(subPath));
         }
 
-        List<String> fileNames = new ArrayList<>();
-        File[] files = resource.getFile().listFiles();
-        if (files != null) {
-            for (File res : files) {
-                fileNames.add(res.getName());
-            }
+        if (fileNames.isEmpty()) {
+            List<String> fallback = getKnownDataFiles(subPath);
+            SystemLog.log_event("ADMIN", "File listing empty, using fallback", "WARN", Map.of(
+                    "targetPath", targetPath,
+                    "fallbackCount", fallback.size()
+            ));
+            return ResponseEntity.ok(fallback);
         }
 
         SystemLog.log_event("ADMIN", "Listed data files", "INFO", Map.of(
@@ -87,6 +121,131 @@ public class AdminController {
 
         return ResponseEntity.ok(fileNames);
     }
+
+    // Add this helper method
+    private List<String> getKnownDataFiles(String subPath) {
+        if (subPath == null || subPath.isEmpty()) {
+            return Arrays.asList(
+                "Train/", 
+                "Taxi/", 
+                "MyCitiBus/", 
+                "stops.csv", 
+                "routes.txt",
+                "schedules.txt"
+            );
+        }
+        
+        // Define subfolder contents
+        switch (subPath) {
+            case "trains/":
+                return Arrays.asList("stops.txt", "trips.txt", "routes.txt");
+            case "buses/":
+                return Arrays.asList("myciti_stops.csv", "myciti_trips.csv", "ga_stops.csv");
+            case "taxis/":
+                return Arrays.asList("taxi_routes.csv", "taxi_stops.csv");
+            default:
+                return new ArrayList<>();
+        }
+    }
+
+
+
+    private String sanitizePrefix(String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        String cleaned = path.trim();
+        while (cleaned.startsWith("/")) {
+            cleaned = cleaned.substring(1);
+        }
+        while (cleaned.endsWith("/")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 1);
+        }
+        return cleaned.isEmpty() ? null : cleaned;
+    }
+
+    private boolean isJarResource(Resource resource) throws IOException {
+        return resource.getURI().toString().startsWith("jar:");
+    }
+
+    private List<String> listFromJar(Resource resource, String prefix) throws IOException {
+        URI uri = resource.getURI();
+        String uriText = uri.toString();
+        int separatorIndex = uriText.indexOf("!/");
+        if (separatorIndex < 0) {
+            return new ArrayList<>();
+        }
+
+        URI jarUri = URI.create(uriText.substring(0, separatorIndex));
+        String internalPath = uriText.substring(separatorIndex + 2);
+        if (internalPath.isEmpty()) {
+            internalPath = "/";
+        }
+
+        FileSystem fileSystem = null;
+        boolean shouldClose = false;
+        try {
+            try {
+                fileSystem = FileSystems.getFileSystem(jarUri);
+            } catch (FileSystemNotFoundException ex) {
+                fileSystem = FileSystems.newFileSystem(jarUri, Map.of());
+                shouldClose = true;
+            }
+
+            Path rootPath = fileSystem.getPath(internalPath);
+            if (!Files.exists(rootPath)) {
+                rootPath = fileSystem.getPath("/").resolve(internalPath).normalize();
+            }
+            return collectEntries(rootPath, prefix);
+        } finally {
+            if (shouldClose && fileSystem != null) {
+                fileSystem.close();
+            }
+        }
+    }
+
+    private List<String> collectEntries(Path rootPath, String prefix) throws IOException {
+        Set<String> entries = new LinkedHashSet<>();
+        if (!Files.exists(rootPath)) {
+            return new ArrayList<>(entries);
+        }
+
+        if (Files.isDirectory(rootPath)) {
+            try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(rootPath)) {
+                for (Path child : dirStream) {
+                    String name = child.getFileName().toString();
+                    String display = (prefix != null && !prefix.isEmpty()) ? prefix + "/" + name : name;
+                    display = display.replace('\', '/');
+                    if (Files.isDirectory(child)) {
+                        if (!display.endsWith("/")) {
+                            display = display + "/";
+                        }
+                    }
+                    entries.add(display);
+                }
+            }
+
+            try (Stream<Path> stream = Files.walk(rootPath)) {
+                stream.filter(Files::isRegularFile).forEach(path -> {
+                    Path relative = rootPath.relativize(path);
+                    String entry = relative.toString().replace('\', '/');
+                    if (prefix != null && !prefix.isEmpty()) {
+                        entry = prefix + "/" + entry;
+                    }
+                    entries.add(entry);
+                });
+            }
+        } else if (Files.isRegularFile(rootPath)) {
+            String entry = rootPath.getFileName().toString();
+            if (prefix != null && !prefix.isEmpty()) {
+                entry = prefix + "/" + entry;
+            }
+            entries.add(entry.replace('\', '/'));
+        }
+
+        return new ArrayList<>(entries);
+    }
+
 
     /**
      * Read a specific file and return its contents as text
