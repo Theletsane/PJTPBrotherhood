@@ -215,7 +215,7 @@ public class AdminController {
                 for (Path child : dirStream) {
                     String name = child.getFileName().toString();
                     String display = (prefix != null && !prefix.isEmpty()) ? prefix + "/" + name : name;
-                    display = display.replace('\'', '/');
+                    display = display.replace("\\", "/").replaceAll("/$", "");
                     if (Files.isDirectory(child)) {
                         if (!display.endsWith("/")) {
                             display = display + "/";
@@ -228,7 +228,7 @@ public class AdminController {
             try (Stream<Path> stream = Files.walk(rootPath)) {
                 stream.filter(Files::isRegularFile).forEach(path -> {
                     Path relative = rootPath.relativize(path);
-                    String entry = relative.toString().replace('\'', '/');
+                    String entry = relative.toString().replace("\\", "/").replaceAll("/$", "");
                     if (prefix != null && !prefix.isEmpty()) {
                         entry = prefix + "/" + entry;
                     }
@@ -240,7 +240,7 @@ public class AdminController {
             if (prefix != null && !prefix.isEmpty()) {
                 entry = prefix + "/" + entry;
             }
-            entries.add(entry.replace('\'', '/'));
+            entries.add(entry.replace("\\", "/").replaceAll("/$", ""));
         }
 
         return new ArrayList<>(entries);
