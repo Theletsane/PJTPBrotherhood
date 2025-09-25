@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -529,12 +528,6 @@ public class SystemHealthMonitor {
         memory.put("freeMemoryMB", runtime.freeMemory() / (1024 * 1024));
         memory.put("usedMemoryMB", (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024));
         summary.put("memory", memory);
-
-        Map<String, Object> performance = new LinkedHashMap<>();
-        performance.put("overview", PerformanceMetricsRegistry.getOverview());
-        performance.put("endpointSummaries", PerformanceMetricsRegistry.getEndpointSummaries());
-        performance.put("recentSamples", PerformanceMetricsRegistry.getRecentSamples().stream().limit(25).toList());
-        summary.put("performance", performance);
         
         return summary;
     }

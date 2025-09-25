@@ -759,7 +759,7 @@ public class GABusGraph {
             this.GAGraph = graph;
         }
 
-        public GABusJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds, Trip.DayType dayType) {
+        public GABusJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds) {
             GAStop source = GAGraph.findStop(sourceName);
             GAStop target = GAGraph.findStop(targetName);
 
@@ -786,9 +786,6 @@ public class GABusGraph {
 
                 for (GAStop marked : markedStops) {
                     for (GATrip trip : marked.getGATrips()) {
-                        if (!isTripOnRequestedDay(trip, dayType)) {
-                            continue;
-                        }
                         LocalTime depTime = trip.getDepartureTime();
                                                 int tripDepMinutes = getMinutesSinceStart(departureTime, depTime);
                         if (tripDepMinutes == Integer.MAX_VALUE) {
@@ -844,17 +841,6 @@ public class GABusGraph {
             return journey;
         }
 
-        private boolean isTripOnRequestedDay(GATrip trip, Trip.DayType requestedDayType) {
-            if (trip == null) {
-                return false;
-            }
-            if (requestedDayType == null) {
-                return true;
-            }
-            Trip.DayType tripDayType = trip.getDayType();
-            return tripDayType != null && tripDayType == requestedDayType;
-        }
-
         private int getMinutesSinceStart(final LocalTime startTime,final LocalTime currentTime) {
             if (currentTime.isBefore(startTime)) {
                 // Assume next day
@@ -877,7 +863,7 @@ public class GABusGraph {
             LocalTime depTime = LocalTime.of(15, 30);
 
             System.out.println("--- Running RAPTOR ---");
-            GABusJourney journey = raptor.runRaptor(source, target, depTime, 5, Trip.DayType.WEEKDAY);
+            GABusJourney journey = raptor.runRaptor(source, target, depTime, 5);
             if (journey == null) {
                 System.out.println("No journey found between " + source + " and " + target);
             } else {

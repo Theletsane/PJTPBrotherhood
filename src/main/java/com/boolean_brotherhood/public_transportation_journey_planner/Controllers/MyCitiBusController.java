@@ -3,7 +3,6 @@ package com.boolean_brotherhood.public_transportation_journey_planner.Controller
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
-import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
@@ -42,22 +39,25 @@ public class MyCitiBusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        SystemLog.log_endpoint("/api/myciti/metrics");
-        Map<String, Object> metrics = new LinkedHashMap<>();
-        graph.getMetrics().forEach(metrics::put);
-
+        SystemLog.log_endpoint("/api/myciti/metrics");  
+        Map<String, Object> metrics = new HashMap<>();
+        
+        // Get base metrics from graph
+        Map<String, Long> myCitiMetrics = graph.getMetrics();
+        for(String key: myCitiMetrics.keySet()){
+            metrics.put(key, myCitiMetrics.get(key));
+        }
+        
+        // Ensure trip and stop counts are included
         List<MyCitiStop> stops = graph.getMyCitiStops();
         List<MyCitiTrip> trips = graph.getMyCitiTrips();
-
-        int stopCount = stops != null ? stops.size() : 0;
-        int tripCount = trips != null ? trips.size() : 0;
-        metrics.put("totalStops", stopCount);
-        metrics.put("totalTrips", tripCount);
-        metrics.put("stopsLoaded", stopCount > 0);
-        metrics.put("tripsLoaded", tripCount > 0);
-        metrics.put("routesTracked", trips == null ? 0 : trips.stream().map(MyCitiTrip::getRouteName).filter(java.util.Objects::nonNull).distinct().count());
-
-        return MetricsResponseBuilder.build("mycitiBus", metrics, "/api/myciti/");
+        
+        metrics.put("totalStops", stops != null ? stops.size() : 0);
+        metrics.put("totalTrips", trips != null ? trips.size() : 0);
+        metrics.put("stopsLoaded", stops != null && !stops.isEmpty());
+        metrics.put("tripsLoaded", trips != null && !trips.isEmpty());
+        
+        return metrics;
     }
 
     /**
@@ -121,8 +121,7 @@ public class MyCitiBusController {
             @RequestParam String source,
             @RequestParam String target,
             @RequestParam(defaultValue = "08:00") String departure,
-            @RequestParam(defaultValue = "4") int maxRounds,
-            @RequestParam(required = false) String day) {
+            @RequestParam(defaultValue = "4") int maxRounds) {
         
         SystemLog.log_endpoint("/api/myciti/journey");
         LocalTime departureTime;
@@ -134,9 +133,7 @@ public class MyCitiBusController {
             return error;
         }
 
-        Trip.DayType dayType = parseDay(day);
-
-        MyCitiBusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds, dayType);
+        MyCitiBusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds);
 
         if (journey == null || journey.getTrips().isEmpty()) {
             return Map.of("error", "No journey found");
@@ -175,16 +172,4 @@ public class MyCitiBusController {
 
         return response;
     }
-
-    private Trip.DayType parseDay(String day) {
-        if (day == null || day.isBlank()) {
-            return Trip.DayType.WEEKDAY;
-        }
-        try {
-            return Trip.DayType.valueOf(day.trim().toUpperCase());
-        } catch (Exception e) {
-            return Trip.DayType.WEEKDAY;
-        }
-    }
-
 }

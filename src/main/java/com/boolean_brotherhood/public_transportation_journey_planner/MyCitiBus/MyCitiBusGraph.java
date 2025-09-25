@@ -348,7 +348,7 @@ public final class MyCitiBusGraph{
          * @param maxRounds    maximum number of rounds
          * @return MyCitiBusJourney object or null if no path found
          */
-        public MyCitiBusJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds, Trip.DayType dayType) {
+        public MyCitiBusJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, int maxRounds) {
             MyCitiStop source = MyCitiGraph.findStop(sourceName == null ? "" : sourceName.toUpperCase());
             MyCitiStop target = MyCitiGraph.findStop(targetName == null ? "" : targetName.toUpperCase());
 
@@ -396,9 +396,6 @@ public final class MyCitiBusGraph{
 
                     for (int i = startIdx; i < trips.size(); i++) {
                         MyCitiTrip trip = trips.get(i);
-                        if (!isTripOnRequestedDay(trip, dayType)) {
-                            continue;
-                        }
                         int tripDep = trip.getDepartureTime().getHour() * 60
                                     + trip.getDepartureTime().getMinute();
                         if (tripDep < arrivalAtMarked) continue;
@@ -446,18 +443,6 @@ public final class MyCitiBusGraph{
 
             return journey;
         }
-
-        private boolean isTripOnRequestedDay(MyCitiTrip trip, Trip.DayType requestedDayType) {
-            if (trip == null) {
-                return false;
-            }
-            if (requestedDayType == null) {
-                return true;
-            }
-            Trip.DayType tripDayType = trip.getDayType();
-            return tripDayType != null && tripDayType == requestedDayType;
-        }
-
     }
 
 
