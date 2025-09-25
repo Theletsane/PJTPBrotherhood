@@ -104,14 +104,14 @@ public class GABusGraph {
      * @return an unmodifiable list of all GA stops in the network
      */
     public List<GAStop> getGAStops() {
-        return totalStops;
+        return Collections.unmodifiableList(totalStops);
     }
 
     /**
      * @return an unmodifiable list of all GA trips (legs) in the network
      */
     public List<GATrip> getGATrips() {
-        return totalTrips;
+        return Collections.unmodifiableList(totalTrips);
     }
 
     /**
@@ -334,6 +334,7 @@ public class GABusGraph {
                     }
 
                     GATrip trip = new GATrip(from, to, dayType, dep);
+                    trip.setDepartureTime(dep);
                     trip.setDuration((int) minutes);
                     trip.setTripID(baseTripId + "-S" + (i + 1));
                     trip.setRouteName(routeDescription);
@@ -750,6 +751,7 @@ public class GABusGraph {
      */
     public static class GARaptor {
 
+        private static final int MINUTES_PER_DAY = 24 * 60;
         private final GABusGraph GAGraph;
         private GABusGraph.Result result;
 
@@ -785,13 +787,20 @@ public class GABusGraph {
                 for (GAStop marked : markedStops) {
                     for (GATrip trip : marked.getGATrips()) {
                         LocalTime depTime = trip.getDepartureTime();
-                        int tripDepMinutes = getMinutesSinceStart(departureTime, depTime);
+                                                int tripDepMinutes = getMinutesSinceStart(departureTime, depTime);
+                        if (tripDepMinutes == Integer.MAX_VALUE) {
+                            continue;
+                        }
 
                         if (tripDepMinutes < bestArrival.get(marked)) {
                             continue;
                         }
 
-                        int arrMinutes = tripDepMinutes + trip.getDuration();
+                        int durationMinutes = Math.max(1, trip.getDuration());
+                        int arrMinutes = tripDepMinutes + durationMinutes;
+                        if (arrMinutes >= MINUTES_PER_DAY) {
+                            continue;
+                        }
                         GAStop dest = (GAStop) trip.getDestinationStop();
 
                         if (arrMinutes < bestArrival.get(dest)) {
@@ -877,3 +886,6 @@ public class GABusGraph {
         }
     }
 }
+
+
+

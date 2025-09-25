@@ -38,6 +38,11 @@ public class Trip {
         this(from, to, duration, DayType.WEEKDAY);
     }
 
+    public Trip(Stop from, Stop to,LocalTime departuTime, int duration,DayType day) {
+        this(from, to, duration, DayType.WEEKDAY);
+        this.departureTime = departuTime;
+    }
+
     // ---------------------------
     // Getters
     // ---------------------------
@@ -47,6 +52,12 @@ public class Trip {
     public DayType getDayType() { return dayType; }
     public LocalTime getDepartureTime() { return departureTime; }
     public String getMode() { return mode; }
+    public LocalTime getArrivalTime() {
+        if (departureTime == null) {
+            return null; // or LocalTime.MIDNIGHT.plusMinutes(duration) if you want a fallback
+        }
+        return departureTime.plusMinutes(duration);
+    }
 
     // ---------------------------
     // Setters

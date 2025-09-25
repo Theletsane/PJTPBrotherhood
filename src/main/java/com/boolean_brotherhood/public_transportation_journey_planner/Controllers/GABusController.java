@@ -1,4 +1,4 @@
-package com.boolean_brotherhood.public_transportation_journey_planner;
+package com.boolean_brotherhood.public_transportation_journey_planner.Controllers;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -12,14 +12,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
 
-@CrossOrigin(origins = "*")
+
 @RestController
 @RequestMapping("/api/GA")
+
 public class GABusController {
     private final GABusGraph graph;
     private final GABusGraph.GARaptor raptor;
@@ -85,6 +87,7 @@ public class GABusController {
 
         return response;
     }
+
 
     /**
      * Run a RAPTOR journey search

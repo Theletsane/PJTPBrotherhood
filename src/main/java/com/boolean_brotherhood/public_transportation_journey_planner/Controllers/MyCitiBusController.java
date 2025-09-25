@@ -1,4 +1,4 @@
-package com.boolean_brotherhood.public_transportation_journey_planner;
+package com.boolean_brotherhood.public_transportation_journey_planner.Controllers;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -12,21 +12,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
 
-@CrossOrigin(origins = "*")
+
 @RestController
-@RequestMapping("/api/GA")
-public class GABusController {
-    private final GABusGraph graph;
-    private final GABusGraph.GARaptor raptor;
+@RequestMapping("/api/myciti")
 
-    public GABusController(GABusGraph graph) {
+public class MyCitiBusController {
+
+    private final MyCitiBusGraph graph;
+    private final MyCitiBusGraph.MyCitiRaptor raptor;
+
+    public MyCitiBusController(MyCitiBusGraph graph) {
         this.graph = graph;
-        this.raptor = new GABusGraph.GARaptor(graph);
+        this.raptor = new MyCitiBusGraph.MyCitiRaptor(graph);
     }
 
     /**
@@ -34,13 +39,24 @@ public class GABusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        
-        SystemLog.log_endpoint("/api/GA/metrics");  
+        SystemLog.log_endpoint("/api/myciti/metrics");  
         Map<String, Object> metrics = new HashMap<>();
-        Map<String, Long> GAmetrics = graph.getMetrics();
-        for(String key: GAmetrics.keySet()){
-            metrics.put(key, GAmetrics.get(key));
+        
+        // Get base metrics from graph
+        Map<String, Long> myCitiMetrics = graph.getMetrics();
+        for(String key: myCitiMetrics.keySet()){
+            metrics.put(key, myCitiMetrics.get(key));
         }
+        
+        // Ensure trip and stop counts are included
+        List<MyCitiStop> stops = graph.getMyCitiStops();
+        List<MyCitiTrip> trips = graph.getMyCitiTrips();
+        
+        metrics.put("totalStops", stops != null ? stops.size() : 0);
+        metrics.put("totalTrips", trips != null ? trips.size() : 0);
+        metrics.put("stopsLoaded", stops != null && !stops.isEmpty());
+        metrics.put("tripsLoaded", trips != null && !trips.isEmpty());
+        
         return metrics;
     }
 
@@ -49,11 +65,11 @@ public class GABusController {
      */
     @GetMapping("/stops")
     public List<Map<String, Object>> getStops() {
-        SystemLog.log_endpoint("/api/GA/stops");
-  
-        List<GAStop> stops = graph.getGAStops();
+        SystemLog.log_endpoint("/api/myciti/stops");
+
+        List<MyCitiStop> stops = graph.getMyCitiStops();
         List<Map<String, Object>> response = new ArrayList<>();
-        for (GAStop stop : stops) {
+        for (MyCitiStop stop : stops) {
             response.add(Map.of(
                 "name", stop.getName(),
                 "latitude", stop.getLatitude(),
@@ -68,12 +84,12 @@ public class GABusController {
      */
     @GetMapping("/trips")
     public List<Map<String, Object>> getTrips() {
-        SystemLog.log_endpoint("/api/GA/trips");
+        SystemLog.log_endpoint("/api/myciti/trips");
         long startTime = System.currentTimeMillis();
 
         List<Map<String, Object>> response = new ArrayList<>();
-        List<GATrip> trips = graph.getGATrips();
-        for (GATrip trip : trips) {
+        List<MyCitiTrip> trips = graph.getMyCitiTrips();
+        for (MyCitiTrip trip : trips) {
             response.add(Map.of(
                 "from", trip.getDepartureStop().getName(),
                 "to", trip.getDestinationStop().getName(),
@@ -84,6 +100,12 @@ public class GABusController {
         long elapsed = System.currentTimeMillis() - startTime;
 
         return response;
+    }
+
+    @GetMapping("/logs")
+    public List<String> getLogs() {
+        SystemLog.log_endpoint("/api/myciti/logs");
+        return graph.getLogs();
     }
 
     /**
@@ -101,7 +123,7 @@ public class GABusController {
             @RequestParam(defaultValue = "08:00") String departure,
             @RequestParam(defaultValue = "4") int maxRounds) {
         
-        SystemLog.log_endpoint("/api/GA/journey");
+        SystemLog.log_endpoint("/api/myciti/journey");
         LocalTime departureTime;
         try {
             departureTime = LocalTime.parse(departure);
@@ -111,7 +133,7 @@ public class GABusController {
             return error;
         }
 
-        GABusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds);
+        MyCitiBusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds);
 
         if (journey == null || journey.getTrips().isEmpty()) {
             return Map.of("error", "No journey found");
@@ -127,12 +149,12 @@ public class GABusController {
 
         // Mini trips: each leg between stops
         List<Map<String, Object>> miniTrips = new ArrayList<>();
-        for (GATrip trip : journey.getTrips()) {
+        for (MyCitiTrip trip : journey.getTrips()) {
             Map<String, Object> miniTripMap = new HashMap<>();
             miniTripMap.put("tripId", trip.getTripID());
             miniTripMap.put("route", trip.getRouteName());
-            miniTripMap.put("from", trip.getDepartureGAStop().getName());
-            miniTripMap.put("to", trip.getDestinationGAStop().getName());
+            miniTripMap.put("from", trip.getDepartureMyCitiStop().getName());
+            miniTripMap.put("to", trip.getDestinationMyCitiStop().getName());
             miniTripMap.put("departure", trip.getDepartureTime() != null ? trip.getDepartureTime().toString() : "N/A");
             miniTripMap.put("durationMinutes", trip.getDuration());
             miniTrips.add(miniTripMap);
@@ -144,13 +166,10 @@ public class GABusController {
         fullJourney.put("totalDurationMinutes", journey.getTotalDurationMinutes());
         fullJourney.put("totalTransfers", journey.getNumberOfTransfers());
         fullJourney.put("path", journey.getTrips().stream()
-                .map(t -> t.getDepartureGAStop().getName() + " -> " + t.getDestinationGAStop().getName())
+                .map(t -> t.getDepartureMyCitiStop().getName() + " -> " + t.getDestinationMyCitiStop().getName())
                 .toList());
         response.put("fullJourney", fullJourney);
 
         return response;
     }
-
-
-    
 }

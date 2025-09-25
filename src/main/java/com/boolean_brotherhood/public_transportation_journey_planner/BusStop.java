@@ -28,7 +28,7 @@ public class BusStop extends Stop {
         this.company = company;
         this.routeCodes = new ArrayList<>();
     }
-
+ 
     /**
      * Add a route code that passes through this bus stop.
      *

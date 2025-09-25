@@ -9,7 +9,7 @@ import java.util.Objects;
  * Abstract Stop class representing a node in the transport network.
  * Stores basic stop information like name, coordinates, code, address, and trips.
  */
-public abstract class Stop {
+public class Stop {
 
     private String name;
     private String companyName;
@@ -34,6 +34,14 @@ public abstract class Stop {
         this.longitude = longitude;
         this.stopCode = stopCode;
         this.address = address;
+        this.trips = new ArrayList<>();
+    }
+
+    public Stop(String name, double latitude, double longitude,String companyName){
+        this.name = name;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.companyName = companyName;
         this.trips = new ArrayList<>();
     }
 

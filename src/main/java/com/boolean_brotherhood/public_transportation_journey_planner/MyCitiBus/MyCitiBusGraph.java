@@ -203,6 +203,7 @@ public final class MyCitiBusGraph{
                             if (duration <= 0) duration = 1;
 
                             MyCitiTrip trip = new MyCitiTrip(from, to, Trip.DayType.parseDayType(dayType), parsedTimeFrom);
+                            trip.setDepartureTime(parsedTimeFrom);
                             trip.setDuration(duration);
                             trip.setRouteName(routeId);
                             trip.setTripID(routeId + "-T" + tripCounter++);
@@ -230,8 +231,8 @@ public final class MyCitiBusGraph{
     
     public Map<String, Long> getMetrics() {
         Map<String, Long> metrics = new HashMap<>();
-        metrics.put("stopCount", (long) (getMyCitiStops() != null ? getMyCitiStops().size() : 0));
-        metrics.put("tripCount", (long) (getMyCitiTrips() != null ? getMyCitiTrips().size() : 0));
+        metrics.put("totalStops", (long) totalStops.size());
+        metrics.put("totalTrips", (long) totalTrips.size());
         metrics.put("malformedStopLines", (long) malformedStopLines);
         metrics.put("missingTripStops", (long) missingTripStops);
         metrics.put("stopsLoadTimeMs", stopsLoadTimeMs);
@@ -330,6 +331,7 @@ public final class MyCitiBusGraph{
 
     public static class MyCitiRaptor {
 
+        private static final int MINUTES_PER_DAY = 24 * 60;
         private final MyCitiBusGraph MyCitiGraph;
         private MyCitiBusGraph.Result result;
 
@@ -399,7 +401,11 @@ public final class MyCitiBusGraph{
                         if (tripDep < arrivalAtMarked) continue;
 
                         MyCitiStop dest = (MyCitiStop) trip.getDestinationStop();
-                        int arrTime = tripDep + trip.getDuration();
+                        int durationMinutes = Math.max(1, trip.getDuration());
+                        int arrTime = tripDep + durationMinutes;
+                        if (arrTime >= MINUTES_PER_DAY) {
+                            continue;
+                        }
 
                         if (arrTime < bestArrival.get(dest)) {
                             bestArrival.put(dest, arrTime);
@@ -442,3 +448,6 @@ public final class MyCitiBusGraph{
 
 
 }
+
+
+

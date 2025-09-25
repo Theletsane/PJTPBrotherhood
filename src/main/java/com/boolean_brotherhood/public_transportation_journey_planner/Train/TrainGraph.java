@@ -19,6 +19,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +31,12 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyF
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 public class TrainGraph {
+
+
 
 
     // Public Transportation Journey
@@ -497,27 +505,17 @@ public class TrainGraph {
     /**
      * Fixed RAPTOR Algorithm implementation with DayType filtering
      */
-    public static class TrainRaptor {
+        public static class TrainRaptor {
 
         private final TrainGraph trainGraph;
-        private static final LocalTime INF = LocalTime.MAX;
+        private static final int MINUTES_PER_DAY = 24 * 60;
 
         public TrainRaptor(TrainGraph graph) {
             this.trainGraph = graph;
         }
 
-        /**
-         * Runs RAPTOR to compute the earliest arrival path with DayType filtering.
-         *
-         * @param sourceName   starting station name
-         * @param targetName   destination station name
-         * @param departureTime desired start time
-         * @param dayType      day type to filter trips (WEEKDAY, SATURDAY, SUNDAY, HOLIDAY)
-         * @param maxRounds    maximum number of rounds to explore
-         * @return TrainJourney object or null if no path found
-         */
-        public TrainJourney runRaptor(String sourceName, String targetName, LocalTime departureTime, 
-                                    Trip.DayType dayType, int maxRounds) {
+        public TrainJourney runRaptor(String sourceName, String targetName, LocalTime departureTime,
+                                      Trip.DayType dayType, int maxRounds) {
             long startTime = System.currentTimeMillis();
 
             TrainStop source = trainGraph.getStopByName(sourceName);
@@ -528,144 +526,146 @@ public class TrainGraph {
                 return null;
             }
 
-            // If source equals target, return immediate journey
             if (source.equals(target)) {
-                TrainJourney immediateJourney = new TrainJourney(source, target, departureTime, 
-                                                            departureTime, new ArrayList<>());
+                LocalTime baseline = departureTime != null ? departureTime : LocalTime.MIN;
+                TrainJourney immediateJourney = new TrainJourney(source, target, baseline, baseline, new ArrayList<>());
                 trainGraph.setLastRaptorLatency(System.currentTimeMillis() - startTime);
                 return immediateJourney;
             }
 
-            List<TrainStop> stops = trainGraph.getTrainStops();
-
-            // RAPTOR data structures - using new instances for each query to avoid memory leaks
-            Map<TrainStop, LocalTime> prevArrival = new HashMap<>(stops.size());
-            Map<TrainStop, LocalTime> currArrival = new HashMap<>(stops.size());
-
-            // Initialize all stops with infinity
-            for (TrainStop s : stops) {
-                prevArrival.put(s, INF);
-                currArrival.put(s, INF);
+            if (departureTime == null) {
+                departureTime = LocalTime.MIN;
             }
-            prevArrival.put(source, departureTime);
+            int requestedDepartureMinutes = minutesOf(departureTime);
 
-            // Parent tracking for path reconstruction
+            List<TrainStop> stops = trainGraph.getTrainStops();
+            Map<TrainStop, Integer> prevArrival = new HashMap<>(stops.size());
+            Map<TrainStop, Integer> currArrival = new HashMap<>(stops.size());
+            for (TrainStop stop : stops) {
+                prevArrival.put(stop, Integer.MAX_VALUE);
+                currArrival.put(stop, Integer.MAX_VALUE);
+            }
+            prevArrival.put(source, requestedDepartureMinutes);
+
             Map<TrainStop, TrainTrips> parentTrip = new HashMap<>();
             Map<TrainStop, TrainStop> parentStop = new HashMap<>();
 
-            // Filter trips by day type and sort by departure time
             List<TrainTrips> filteredTrips = trainGraph.getTrainTrips().stream()
-                .filter(trip -> isValidForDayType(trip, dayType))
-                .sorted((a, b) -> {
-                    LocalTime da = a.getDepartureTime() != null ? a.getDepartureTime() : LocalTime.MIN;
-                    LocalTime db = b.getDepartureTime() != null ? b.getDepartureTime() : LocalTime.MIN;
-                    return da.compareTo(db);
-                })
-                .collect(java.util.stream.Collectors.toList());
+                    .filter(trip -> trip.getDepartureTime() != null)
+                    .filter(trip -> isValidForDayType(trip, dayType))
+                    .sorted(Comparator.comparing(TrainTrips::getDepartureTime))
+                    .collect(java.util.stream.Collectors.toList());
 
-            boolean improved = false;
-
-            // RAPTOR rounds (1 to maxRounds)
-            for (int round = 1; round <= maxRounds; round++) {
-                // Copy previous round arrivals to current round
-                for (TrainStop s : stops) {
-                    currArrival.put(s, prevArrival.get(s));
+            int rounds = Math.max(1, maxRounds);
+            for (int round = 1; round <= rounds; round++) {
+                for (TrainStop stop : stops) {
+                    currArrival.put(stop, prevArrival.get(stop));
                 }
 
-                improved = false;
+                boolean improved = false;
 
-                // Scan all eligible trips in chronological order
                 for (TrainTrips trip : filteredTrips) {
                     TrainStop depStop = trip.getDepartureTrainStop();
                     TrainStop destStop = trip.getDestinationTrainStop();
-                    LocalTime tripDepTime = trip.getDepartureTime();
+                    LocalTime departureLocal = trip.getDepartureTime();
 
-                    if (tripDepTime == null || depStop == null || destStop == null) {
-                        continue; // Skip malformed trips
+                    if (depStop == null || destStop == null || departureLocal == null) {
+                        continue;
                     }
 
-                    LocalTime earliestAtDep = prevArrival.get(depStop);
-                    if (earliestAtDep == null) earliestAtDep = INF;
+                    int tripDepartureMinutes = minutesOf(departureLocal);
+                    if (tripDepartureMinutes < requestedDepartureMinutes) {
+                        continue;
+                    }
 
-                    // Can only board if we arrive at departure stop before or at trip departure time
-                    if (!earliestAtDep.equals(INF) && !earliestAtDep.isAfter(tripDepTime)) {
-                        LocalTime arrivalAtDest = tripDepTime.plusMinutes(trip.getDuration());
-                        LocalTime currentBestAtDest = currArrival.get(destStop);
-                        if (currentBestAtDest == null) currentBestAtDest = INF;
+                    int earliestAtDeparture = prevArrival.getOrDefault(depStop, Integer.MAX_VALUE);
+                    if (tripDepartureMinutes < earliestAtDeparture) {
+                        continue;
+                    }
 
-                        // If this trip gives us a better arrival time at destination
-                        if (arrivalAtDest.isBefore(currentBestAtDest)) {
-                            currArrival.put(destStop, arrivalAtDest);
-                            parentTrip.put(destStop, trip);
-                            parentStop.put(destStop, depStop);
-                            improved = true;
-                        }
+                    int durationMinutes = Math.max(1, trip.getDuration());
+                    int arrivalMinutes = tripDepartureMinutes + durationMinutes;
+                    if (arrivalMinutes >= MINUTES_PER_DAY) {
+                        continue;
+                    }
+
+                    int currentBest = currArrival.getOrDefault(destStop, Integer.MAX_VALUE);
+                    if (arrivalMinutes < currentBest) {
+                        currArrival.put(destStop, arrivalMinutes);
+                        parentTrip.put(destStop, trip);
+                        parentStop.put(destStop, depStop);
+                        improved = true;
                     }
                 }
 
-                // If no improvement this round, we can stop early
                 if (!improved) {
                     break;
                 }
 
-                // Swap maps for next iteration (reuse objects to reduce GC pressure)
-                Map<TrainStop, LocalTime> temp = prevArrival;
+                Map<TrainStop, Integer> temp = prevArrival;
                 prevArrival = currArrival;
                 currArrival = temp;
             }
 
-            LocalTime bestArrivalAtTarget = prevArrival.get(target);
-            if (bestArrivalAtTarget == null || bestArrivalAtTarget.equals(INF)) {
+            int arrivalMinutes = prevArrival.getOrDefault(target, Integer.MAX_VALUE);
+            if (arrivalMinutes == Integer.MAX_VALUE) {
                 trainGraph.setLastRaptorLatency(System.currentTimeMillis() - startTime);
-                return null; // No journey found
+                return null;
             }
 
-            // Reconstruct path by following parent pointers
             List<TrainTrips> journeyTrips = reconstructPath(target, source, parentTrip, parentStop);
-
             if (journeyTrips.isEmpty()) {
                 trainGraph.setLastRaptorLatency(System.currentTimeMillis() - startTime);
                 return null;
             }
 
-            TrainJourney journey = new TrainJourney(source, target, departureTime, 
-                                                bestArrivalAtTarget, journeyTrips);
-
+            LocalTime arrivalTime = LocalTime.of(arrivalMinutes / 60, arrivalMinutes % 60);
+            TrainJourney journey = new TrainJourney(source, target, departureTime, arrivalTime, journeyTrips);
             trainGraph.setLastRaptorLatency(System.currentTimeMillis() - startTime);
             return journey;
         }
 
-        /**
-         * Reconstructs the journey path from parent tracking maps.
-         */
         private List<TrainTrips> reconstructPath(TrainStop target, TrainStop source,
-                                            Map<TrainStop, TrainTrips> parentTrip,
-                                            Map<TrainStop, TrainStop> parentStop) {
+                                                Map<TrainStop, TrainTrips> parentTrip,
+                                                Map<TrainStop, TrainStop> parentStop) {
             List<TrainTrips> path = new ArrayList<>();
             TrainStop current = target;
+            Set<TrainStop> guard = new HashSet<>();
 
-            // Walk backwards from target to source
-            while (!current.equals(source) && parentTrip.containsKey(current)) {
+            while (!current.equals(source) && parentTrip.containsKey(current) && guard.add(current)) {
                 TrainTrips trip = parentTrip.get(current);
                 path.add(trip);
-                
                 TrainStop previous = parentStop.get(current);
                 if (previous == null) {
-                    break; // Defensive programming
+                    break;
                 }
                 current = previous;
             }
 
-            // Reverse to get correct order (source -> target)
-            java.util.Collections.reverse(path);
+            Collections.reverse(path);
             return path;
         }
 
-        /**
-         * Checks if a trip is valid for the given day type.
-         * You can extend this logic based on your business rules.
-         */
+        private static int minutesOf(LocalTime time) {
+            return time.getHour() * 60 + time.getMinute();
+        }
+
         private boolean isValidForDayType(TrainTrips trip, Trip.DayType requestedDayType) {
+            Trip.DayType tripDayType = trip.getDayType();
+
+            if (tripDayType == null || requestedDayType == null) {
+                return true; // If no day type specified, include all trips
+            }
+
+            if (tripDayType == requestedDayType) {
+                return true;
+            }
+
+            return false;
+        }
+    }    
+
+    private boolean isValidForDayType(TrainTrips trip, Trip.DayType requestedDayType) {
             Trip.DayType tripDayType = trip.getDayType();
             
             if (tripDayType == null || requestedDayType == null) {
@@ -683,7 +683,7 @@ public class TrainGraph {
             
             return false; // Only exact matches for now
         }
-    }
+    
 
     // Updated method in TrainGraph class to fix the signature mismatch
     /**
@@ -765,3 +765,6 @@ public class TrainGraph {
     }
  
 }
+
+
+
