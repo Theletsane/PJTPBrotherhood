@@ -15,7 +15,6 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -53,27 +52,27 @@ public class AdminController {
         this.busController = busController;
     }
 
+    /**
+     * List all files & subfolders in CapeTownTransitData
+     */
     @GetMapping("/list")
     public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
         SystemLog.log_endpoint("/api/admin/list");
-
-        String targetPath = DATA_PATH + (subPath != null ? subPath : "");
-        List<String> fileNames = new ArrayList<>();
-
-        // Use ResourcePatternResolver to support JAR deployment
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        Resource[] resources = resolver.getResources("classpath*:" + targetPath + "**");
-
-        if (resources.length == 0) {
+        String targetPath =DATA_PATH+ (subPath != null ? subPath : "");
+        Resource resource = new ClassPathResource(targetPath);
+        
+        if (!resource.exists()) {
             SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
                     "targetPath", targetPath
             ));
             return ResponseEntity.notFound().build();
         }
 
-        for (Resource res : resources) {
-            if (res.isFile()) {
-                fileNames.add(res.getFilename());
+        List<String> fileNames = new ArrayList<>();
+        File[] files = resource.getFile().listFiles();
+        if (files != null) {
+            for (File res : files) {
+                fileNames.add(res.getName());
             }
         }
 
@@ -84,6 +83,7 @@ public class AdminController {
 
         return ResponseEntity.ok(fileNames);
     }
+
     /**
      * Read a specific file and return its contents as text
      */
