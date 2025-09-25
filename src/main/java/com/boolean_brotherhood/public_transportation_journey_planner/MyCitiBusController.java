@@ -15,7 +15,8 @@ import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.M
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
 
 @RestController
 @RequestMapping("/api/myciti")
@@ -48,19 +49,49 @@ public class MyCitiBusController {
      * Get all stops
      */
     @GetMapping("/stops")
-    public List<MyCitiStop> getStops() {
+    public List<Map<String, Object>> getStops() {
         SystemLog.log_endpoint("/api/myciti/stops");
-        return graph.getMyCitiStops();
+        long startTime = System.currentTimeMillis();
+        List<MyCitiStop> stops = graph.getMyCitiStops();
+        List<Map<String, Object>> response = new ArrayList<>();
+        for (MyCitiStop stop : stops) {
+            response.add(Map.of(
+                "name", stop.getName(),
+                "latitude", stop.getLatitude(),
+                "longitude", stop.getLongitude()
+            ));
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        //recordResponseTime("/api/myciti/stops", elapsed);
+
+        return response;
     }
+    
 
     /**
      * Get all trips
      */
     @GetMapping("/trips")
-    public List<MyCitiTrip> getTrips() {
+    public List<Map<String, Object>> getTrips() {
         SystemLog.log_endpoint("/api/myciti/trips");
-        return graph.getMyCitiTrips();
+        long startTime = System.currentTimeMillis();
+
+        List<Map<String, Object>> response = new ArrayList<>();
+        for (MyCitiTrip trip : graph.getMyCitiTrips()) {
+            response.add(Map.of(
+                "from", trip.getDepartureStop().getName(),
+                "to", trip.getDestinationStop().getName(),
+                "duration", trip.getDuration()
+            ));
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        //recordResponseTime("/all-trips", elapsed);
+
+        return response;
     }
+
 
     @GetMapping("/logs")
     public List<String> getLogs() {

@@ -15,6 +15,8 @@ import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABu
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
 
 @RestController
 @RequestMapping("/api/GA")
@@ -46,18 +48,48 @@ public class GABusController {
      * Get all stops
      */
     @GetMapping("/stops")
-    public List<GAStop> getStops() {
+    public List<Map<String, Object>> getStops() {
         SystemLog.log_endpoint("/api/GA/stops");
-        return graph.getGAStops();
+  
+        long startTime = System.currentTimeMillis();
+        List<GAStop> stops = graph.getGAStops();
+        List<Map<String, Object>> response = new ArrayList<>();
+        for (GAStop stop : stops) {
+            response.add(Map.of(
+                "name", stop.getName(),
+                "latitude", stop.getLatitude(),
+                "longitude", stop.getLongitude()
+            ));
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        //recordResponseTime("/all-stops", elapsed);
+
+        return response;
     }
 
     /**
      * Get all trips
      */
     @GetMapping("/trips")
-    public List<GATrip> getTrips() {
+    public List<Map<String, Object>> getTrips() {
         SystemLog.log_endpoint("/api/GA/trips");
-        return graph.getGATrips();
+        long startTime = System.currentTimeMillis();
+
+        List<Map<String, Object>> response = new ArrayList<>();
+        List<GATrip> trips = graph.getGATrips();
+        for (GATrip trip : trips) {
+            response.add(Map.of(
+                "from", trip.getDepartureStop().getName(),
+                "to", trip.getDestinationStop().getName(),
+                "duration", trip.getDuration()
+            ));
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        //recordResponseTime("/all-trips", elapsed);
+
+        return response;
     }
 
     /**
