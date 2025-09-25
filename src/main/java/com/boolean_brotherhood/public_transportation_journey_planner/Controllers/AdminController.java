@@ -90,7 +90,7 @@ public class AdminController {
     @GetMapping("/file")
     public ResponseEntity<String> readFile(@RequestParam String filePath) throws IOException {
         SystemLog.log_endpoint("/api/admin/file");
-        Resource resource;
+        Resource resource = null;
         if (filePath.startsWith("CapeTownTransitData/")) {
              resource = new ClassPathResource(filePath);
         } else {
