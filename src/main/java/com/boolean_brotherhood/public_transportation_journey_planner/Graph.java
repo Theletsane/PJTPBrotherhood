@@ -62,7 +62,11 @@ public class Graph {
         SystemLog.log_event("GRAPH", "Loaded base graph data", "INFO", Map.of(
                 "elapsedMs", elapsed,
                 "taxiStops", taxiGraph.getTaxiStops().size(),
-                "trainStops", trainGraph.getTrainStops().size()
+                "taxiTrips", taxiGraph.getTaxiTrips().size(),
+                "trainStops", trainGraph.getTrainStops().size(),
+                "trainTrips", trainGraph.getTrainTrips().size(),
+                "mycitiBusStops", busGraph.getMyCitiStops().size(),
+                "mycitiBusTrips", busGraph.getMyCitiTrips().size()
         ));
     }
 
