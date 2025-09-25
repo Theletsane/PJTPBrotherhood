@@ -51,7 +51,6 @@ public class GABusController {
     public List<Map<String, Object>> getStops() {
         SystemLog.log_endpoint("/api/GA/stops");
   
-        long startTime = System.currentTimeMillis();
         List<GAStop> stops = graph.getGAStops();
         List<Map<String, Object>> response = new ArrayList<>();
         for (GAStop stop : stops) {
@@ -62,8 +61,7 @@ public class GABusController {
             ));
         }
 
-        long elapsed = System.currentTimeMillis() - startTime;
-        //recordResponseTime("/all-stops", elapsed);
+
 
         return response;
     }
@@ -87,7 +85,6 @@ public class GABusController {
         }
 
         long elapsed = System.currentTimeMillis() - startTime;
-        //recordResponseTime("/all-trips", elapsed);
 
         return response;
     }
