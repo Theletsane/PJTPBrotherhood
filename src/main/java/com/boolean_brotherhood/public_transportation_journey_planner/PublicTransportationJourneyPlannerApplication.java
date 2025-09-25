@@ -11,6 +11,7 @@ public class PublicTransportationJourneyPlannerApplication implements CommandLin
         SpringApplication.run(PublicTransportationJourneyPlannerApplication.class, args);
     }
 
+
     @Override
     public void run(String... args) throws Exception {
         // This runs after Spring Boot starts
@@ -18,4 +19,5 @@ public class PublicTransportationJourneyPlannerApplication implements CommandLin
         System.out.println(" Graph has been loaded successfully!");
     }
 
+    
 }

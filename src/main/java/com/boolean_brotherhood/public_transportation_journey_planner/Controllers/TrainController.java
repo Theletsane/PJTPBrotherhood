@@ -5,6 +5,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,6 +21,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Train.Route
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph.TrainRaptor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
@@ -340,7 +342,12 @@ public class TrainController {
 
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        return trainGraph.getMetrics();
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        trainGraph.getMetrics().forEach(metrics::put);
+        metrics.put("stopCount", trainGraph.getTrainStops().size());
+        metrics.put("tripCount", trainGraph.getTrainTrips().size());
+        metrics.put("registeredRoutes", trainGraph.routeNumbers.size());
+        return MetricsResponseBuilder.build("train", metrics, "/api/train/");
     }
 
     /** Get all trips departing from a stop */

@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
+"""Comprehensive monitoring suite for the Public Transportation Journey Planner."""
 
-"""
-Transport System Monitor Test Script (deployment-ready)
-
-This script comprehensively tests the monitoring capabilities of the
-Public Transportation Journey Planner system. It supports testing one or
-more base URLs (local or remote) and can export structured JSON
-summaries, making it suitable for deployment validation pipelines.
-"""
+from __future__ import annotations
 
 import argparse
 import concurrent.futures
 import json
 import sys
+import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
 from requests import RequestException
-import threading
+
+
+@dataclass
+class EndpointSpec:
+    """Describes a single endpoint invocation."""
+
+    name: str
+    path: str
+    method: str = "GET"
+    expected_status: int = 200
+    params: Optional[Dict[str, Any]] = None
+    json: Optional[Dict[str, Any]] = None
 
 
 class TransportSystemMonitor:
@@ -35,7 +42,7 @@ class TransportSystemMonitor:
         concurrent_threads: int = 5,
         concurrent_iterations: int = 3,
     ) -> None:
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.label = label or self.base_url
         self.timeout = timeout
         self.retries = max(0, retries)
@@ -43,12 +50,11 @@ class TransportSystemMonitor:
         self.concurrent_iterations = max(1, concurrent_iterations)
 
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "PTJP-Monitor/1.0",
-        })
+        self.session.headers.update({"User-Agent": "PTJP-Monitor/2.0"})
 
         self.log_lines: List[Dict[str, Any]] = []
         self.endpoint_results: List[Dict[str, Any]] = []
+        self.context: Dict[str, Any] = {}
         self.lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -69,315 +75,346 @@ class TransportSystemMonitor:
             self.endpoint_results.append(result)
 
     # ------------------------------------------------------------------
-    # Core HTTP testing helper
+    # Context bootstrap
     # ------------------------------------------------------------------
-    def test_endpoint(
-        self,
-        endpoint: str,
-        expected_status: int = 200,
-        method: str = "GET",
-        payload: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        url = f"{self.base_url}{endpoint}"
-        attempt = 0
+    def bootstrap_context(self) -> None:
+        self.log("Preparing context data for dynamic endpoint checks ...")
+        self.context.clear()
 
-        while True:
+        graph_stops = self._fetch_json("/api/graph/stops")
+        if isinstance(graph_stops, list) and graph_stops:
+            self.context["graph_stop"] = graph_stops[0].get("name")
+            if len(graph_stops) > 1:
+                self.context["graph_stop_alt"] = graph_stops[1].get("name")
+            coords = (
+                graph_stops[0].get("latitude"),
+                graph_stops[0].get("longitude"),
+            )
+            if all(isinstance(c, (int, float)) for c in coords):
+                self.context["graph_coords"] = coords
+
+        self.context["train_stop"] = self._first_name(self._fetch_json("/api/train/stops"))
+        self.context["ga_stop"] = self._first_name(self._fetch_json("/api/GA/stops"))
+        self.context["ga_stop_alt"] = self._second_name(self._fetch_json("/api/GA/stops"))
+        self.context["myciti_stop"] = self._first_name(self._fetch_json("/api/myciti/stops"))
+        self.context["myciti_stop_alt"] = self._second_name(self._fetch_json("/api/myciti/stops"))
+        taxi_stops = self._fetch_json("/api/taxi/all-stops")
+        if isinstance(taxi_stops, list) and taxi_stops:
+            self.context["taxi_coords"] = (
+                taxi_stops[0].get("latitude"),
+                taxi_stops[0].get("longitude"),
+            )
+
+        self.log(f"Context prepared: {json.dumps(self.context, default=str)}")
+
+    def _fetch_json(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        url = f"{self.base_url}{endpoint}"
+        try:
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            if response.status_code != 200:
+                return None
+            return response.json()
+        except (RequestException, ValueError):
+            return None
+
+    @staticmethod
+    def _first_name(items: Optional[List[Dict[str, Any]]]) -> Optional[str]:
+        if isinstance(items, list) and items:
+            return items[0].get("name")
+        return None
+
+    @staticmethod
+    def _second_name(items: Optional[List[Dict[str, Any]]]) -> Optional[str]:
+        if isinstance(items, list) and len(items) > 1:
+            return items[1].get("name")
+        return None
+
+    # ------------------------------------------------------------------
+    # Endpoint execution
+    # ------------------------------------------------------------------
+    def test_endpoint(self, spec: EndpointSpec, log_request: bool = True) -> Dict[str, Any]:
+        url = f"{self.base_url}{spec.path}"
+        attempt = 0
+        last_exception: Optional[Exception] = None
+
+        while attempt <= self.retries:
             start_time = time.time()
             try:
-                if method.upper() == "POST":
-                    response = self.session.post(url, json=payload, timeout=self.timeout)
+                if spec.method.upper() == "POST":
+                    response = self.session.post(
+                        url,
+                        json=spec.json,
+                        params=spec.params,
+                        timeout=self.timeout,
+                    )
                 else:
-                    response = self.session.get(url, timeout=self.timeout)
+                    response = self.session.get(
+                        url,
+                        params=spec.params,
+                        timeout=self.timeout,
+                    )
 
-                response_time = (time.time() - start_time) * 1000
+                duration_ms = (time.time() - start_time) * 1000
+                success = response.status_code == spec.expected_status
+                payload: Any
+                try:
+                    payload = response.json()
+                except ValueError:
+                    payload = response.text[:500]
+
                 result: Dict[str, Any] = {
                     "base_url": self.base_url,
-                    "endpoint": endpoint,
+                    "name": spec.name,
+                    "endpoint": spec.path,
                     "status_code": response.status_code,
-                    "response_time_ms": round(response_time, 2),
-                    "success": response.status_code == expected_status,
+                    "response_time_ms": round(duration_ms, 2),
+                    "success": success,
+                    "data": payload,
                     "timestamp": datetime.now().isoformat(),
                 }
 
-                if response.status_code == expected_status:
-                    try:
-                        data = response.json()
-                        result["data"] = data
-                        result["has_data"] = bool(data)
-                    except ValueError:
-                        result["data"] = response.text[:500]
-                        result["has_data"] = bool(response.text)
-                else:
-                    result["error"] = response.text[:500]
+                self._record_endpoint_result(result)
+                if log_request:
+                    if success:
+                        self.log(f"? {spec.name} ({response.status_code}) in {result['response_time_ms']} ms")
+                    else:
+                        self.log(
+                            f"? {spec.name} expected {spec.expected_status} got {response.status_code}",
+                            level="WARN",
+                        )
+                return result
 
             except RequestException as exc:
-                response_time = (time.time() - start_time) * 1000
+                duration_ms = (time.time() - start_time) * 1000
+                last_exception = exc
                 result = {
                     "base_url": self.base_url,
-                    "endpoint": endpoint,
+                    "name": spec.name,
+                    "endpoint": spec.path,
                     "status_code": 0,
-                    "response_time_ms": round(response_time, 2),
+                    "response_time_ms": round(duration_ms, 2),
                     "success": False,
                     "error": str(exc),
                     "timestamp": datetime.now().isoformat(),
                 }
-
-            self._record_endpoint_result(result)
-
-            if result["success"] or attempt >= self.retries:
-                return result
-
+                self._record_endpoint_result(result)
+                if log_request:
+                    self.log(f"? {spec.name} request error: {exc}", level="ERROR")
             attempt += 1
-            self.log(f"Retrying {endpoint} (attempt {attempt + 1}/{self.retries + 1})", "WARN")
-            time.sleep(0.5)
+
+        if last_exception is not None:
+            raise last_exception
+        return result  # type: ignore[UnboundLocalVariable]
 
     # ------------------------------------------------------------------
-    # Test categories (adapted from original script)
+    # Test plan definition
     # ------------------------------------------------------------------
-    def test_health_monitoring(self) -> None:
-        self.log("=" * 60)
-        self.log("TESTING HEALTH MONITORING ENDPOINTS")
-        self.log("=" * 60)
+    def build_test_plan(self) -> List[tuple[str, List[EndpointSpec]]]:
+        plan: List[tuple[str, List[EndpointSpec]]] = []
 
-        health_endpoints = [
-            "/api/monitor/health",
-            "/api/monitor/summary",
-            "/api/monitor/ready",
-            "/api/monitor/alerts",
-            "/api/monitor/alerts/all",
-            "/api/monitor/stats",
+        # Graph controller
+        graph_specs: List[EndpointSpec] = [
+            EndpointSpec("Graph metrics", "/api/graph/metrics"),
+            EndpointSpec("Graph stops", "/api/graph/stops"),
         ]
+        graph_stop = self.context.get("graph_stop")
+        graph_stop_alt = self.context.get("graph_stop_alt")
+        coords = self.context.get("graph_coords")
+        if graph_stop:
+            graph_specs.append(EndpointSpec("Graph stop detail", f"/api/graph/stops/{graph_stop}"))
+        if coords and all(isinstance(c, (int, float)) for c in coords):
+            graph_specs.append(
+                EndpointSpec(
+                    "Graph nearest stop",
+                    "/api/graph/stops/nearest",
+                    params={"lat": coords[0], "lon": coords[1]},
+                )
+            )
+        if graph_stop and graph_stop_alt:
+            graph_specs.append(
+                EndpointSpec(
+                    "Graph journey",
+                    "/api/graph/journey",
+                    params={
+                        "from": graph_stop,
+                        "to": graph_stop_alt,
+                        "time": "07:30",
+                        "day": "WEEKDAY",
+                    },
+                )
+            )
+        plan.append(("Graph", graph_specs))
 
-        for endpoint in health_endpoints:
-            result = self.test_endpoint(endpoint)
-            if result["success"]:
-                self.log(f"? {endpoint}: {result['response_time_ms']}ms")
-                if endpoint == "/api/monitor/health" and "data" in result:
-                    data = result["data"]
-                    self.log(
-                        f"   System Status: {'HEALTHY' if data.get('systemHealthy') else 'UNHEALTHY'}"
-                    )
-                    self.log(f"   Health Checks: {data.get('totalHealthChecks', 'N/A')}")
-                    self.log(f"   Critical Errors: {data.get('criticalErrors', 'N/A')}")
-            else:
-                self.log(f"? {endpoint}: {result.get('error', 'Failed')}", "ERROR")
-
-    def test_graph_monitoring(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING GRAPH-SPECIFIC MONITORING")
-        self.log("=" * 60)
-
-        for graph in ["train", "bus", "taxi"]:
-            self.log(f"\nTesting {graph.upper()} Graph:")
-
-            ready_result = self.test_endpoint(f"/api/monitor/graph/{graph}/ready")
-            if ready_result["success"] and "data" in ready_result:
-                ready = ready_result["data"].get("ready", False)
-                self.log(f"  Ready Status: {'? READY' if ready else '? NOT READY'}")
-
-            status_result = self.test_endpoint(f"/api/monitor/graph/{graph}")
-            if status_result["success"] and "data" in status_result:
-                status = status_result["data"]
-                self.log(f"  Status: {status.get('status', 'UNKNOWN')}")
-                self.log(f"  Stops: {status.get('stopCount', 'N/A')}")
-                self.log(f"  Trips: {status.get('tripCount', 'N/A')}")
-                self.log(f"  Load Time: {status.get('loadTimeMs', 'N/A')}ms")
-
-    def test_admin_monitoring(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING ADMIN MONITORING ENDPOINTS")
-        self.log("=" * 60)
-
-        admin_endpoints = [
-            "/api/admin/systemMetrics",
-            "/api/admin/GetFileInUse",
-            "/api/admin/MostRecentCall",
+        # GA bus controller
+        ga_specs: List[EndpointSpec] = [
+            EndpointSpec("GA metrics", "/api/GA/metrics"),
+            EndpointSpec("GA stops", "/api/GA/stops"),
+            EndpointSpec("GA trips", "/api/GA/trips"),
         ]
+        ga_stop = self.context.get("ga_stop")
+        ga_stop_alt = self.context.get("ga_stop_alt")
+        if ga_stop and ga_stop_alt:
+            ga_specs.append(
+                EndpointSpec(
+                    "GA journey",
+                    "/api/GA/journey",
+                    params={
+                        "source": ga_stop,
+                        "target": ga_stop_alt,
+                        "departure": "07:45",
+                        "maxRounds": 4,
+                    },
+                )
+            )
+        plan.append(("GA Bus", ga_specs))
 
-        for endpoint in admin_endpoints:
-            result = self.test_endpoint(endpoint)
-            if result["success"]:
-                self.log(f"? {endpoint}: {result['response_time_ms']}ms")
-                if "data" in result and isinstance(result["data"], (dict, list)):
-                    size = len(result["data"]) if isinstance(result["data"], list) else len(result["data"].keys())
-                    self.log(f"   Data elements: {size}")
-            else:
-                self.log(f"? {endpoint}: {result.get('error', 'Failed')}", "ERROR")
-
-    def test_service_endpoints(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING MAIN SERVICE ENDPOINTS")
-        self.log("=" * 60)
-
-        endpoints = [
-            ("/api/train/stops", "Train stops"),
-            ("/api/train/metrics", "Train metrics"),
-            ("/api/myciti/stops", "MyCiti stops"),
-            ("/api/myciti/metrics", "MyCiti metrics"),
-            ("/api/taxi/all-stops", "Taxi stops"),
-            ("/api/taxi/metrics", "Taxi metrics"),
+        # MyCiti controller
+        myciti_specs: List[EndpointSpec] = [
+            EndpointSpec("MyCiti metrics", "/api/myciti/metrics"),
+            EndpointSpec("MyCiti stops", "/api/myciti/stops"),
+            EndpointSpec("MyCiti trips", "/api/myciti/trips"),
         ]
+        myciti_stop = self.context.get("myciti_stop")
+        myciti_stop_alt = self.context.get("myciti_stop_alt")
+        if myciti_stop and myciti_stop_alt:
+            myciti_specs.append(
+                EndpointSpec(
+                    "MyCiti journey",
+                    "/api/myciti/journey",
+                    params={
+                        "source": myciti_stop,
+                        "target": myciti_stop_alt,
+                        "departure": "08:00",
+                        "maxRounds": 4,
+                    },
+                )
+            )
+        plan.append(("MyCiti Bus", myciti_specs))
 
-        for endpoint, label in endpoints:
-            result = self.test_endpoint(endpoint)
-            if result["success"]:
-                self.log(f"? {label}: {result['response_time_ms']}ms")
-                if isinstance(result.get("data"), list):
-                    self.log(f"   Records: {len(result['data'])}")
-            else:
-                self.log(f"? {label}: {result.get('error', 'Failed')}", "ERROR")
-
-    def test_concurrent_monitoring(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING CONCURRENT MONITORING LOAD")
-        self.log("=" * 60)
-
-        endpoints = [
-            "/api/monitor/health",
-            "/api/monitor/ready",
-            "/api/admin/systemMetrics",
-            "/api/train/metrics",
-            "/api/myciti/metrics",
-            "/api/taxi/metrics",
+        # Train controller
+        train_specs: List[EndpointSpec] = [
+            EndpointSpec("Train metrics", "/api/train/metrics"),
+            EndpointSpec("Train stops", "/api/train/stops"),
         ]
+        train_stop = self.context.get("train_stop")
+        if train_stop:
+            train_specs.append(EndpointSpec("Train stop detail", f"/api/train/stops/{train_stop}"))
+            train_specs.append(
+                EndpointSpec(
+                    "Train journey",
+                    "/api/train/journey",
+                    params={"from": train_stop, "to": train_stop, "time": "06:30"},
+                )
+            )
+        plan.append(("Train", train_specs))
 
-        def worker() -> List[Dict[str, Any]]:
-            worker_results = []
-            for endpoint in endpoints:
-                for _ in range(self.concurrent_iterations):
-                    worker_results.append(self.test_endpoint(endpoint))
-                    time.sleep(0.1)
-            return worker_results
+        # Taxi controller
+        taxi_specs: List[EndpointSpec] = [
+            EndpointSpec("Taxi metrics", "/api/taxi/metrics"),
+            EndpointSpec("Taxi all stops", "/api/taxi/all-stops"),
+            EndpointSpec("Taxi all trips", "/api/taxi/all-trips"),
+        ]
+        taxi_coords = self.context.get("taxi_coords") or self.context.get("graph_coords")
+        if taxi_coords and all(isinstance(c, (int, float)) for c in taxi_coords):
+            taxi_specs.append(
+                EndpointSpec(
+                    "Taxi nearest stops",
+                    "/api/taxi/nearest-stops",
+                    method="POST",
+                    json={
+                        "location": {"latitude": taxi_coords[0], "longitude": taxi_coords[1]},
+                        "max": 5,
+                    },
+                )
+            )
+        plan.append(("Taxi", taxi_specs))
 
+        # Admin controller
+        admin_specs = [
+            EndpointSpec("Admin system metrics", "/api/admin/systemMetrics"),
+            EndpointSpec("Admin files in use", "/api/admin/GetFileInUse"),
+            EndpointSpec("Admin recent calls", "/api/admin/MostRecentCall"),
+        ]
+        plan.append(("Admin", admin_specs))
+
+        # Monitoring controller
+        monitor_specs = [
+            EndpointSpec("Monitor health", "/api/monitor/health", expected_status=200),
+            EndpointSpec("Monitor summary", "/api/monitor/summary"),
+            EndpointSpec("Monitor ready", "/api/monitor/ready", expected_status=200),
+            EndpointSpec("Monitor stats", "/api/monitor/stats"),
+            EndpointSpec("Monitor alerts", "/api/monitor/alerts"),
+            EndpointSpec("Monitor alerts all", "/api/monitor/alerts/all"),
+            EndpointSpec("Monitor performance", "/api/monitor/performance"),
+            EndpointSpec("Monitor health check", "/api/monitor/health/check", method="POST"),
+        ]
+        for graph_name in ("train", "bus", "taxi"):
+            monitor_specs.append(
+                EndpointSpec(
+                    f"Monitor graph {graph_name} ready",
+                    f"/api/monitor/graph/{graph_name}/ready",
+                    expected_status=200,
+                )
+            )
+            monitor_specs.append(
+                EndpointSpec(
+                    f"Monitor graph {graph_name} status",
+                    f"/api/monitor/graph/{graph_name}",
+                    expected_status=200,
+                )
+            )
+        plan.append(("Monitor", monitor_specs))
+
+        return plan
+
+    # ------------------------------------------------------------------
+    # Performance tests
+    # ------------------------------------------------------------------
+    def run_performance_checks(self) -> None:
+        targets = [
+            EndpointSpec("Performance snapshot", "/api/monitor/performance"),
+            EndpointSpec("Graph metrics snapshot", "/api/graph/metrics"),
+            EndpointSpec("Admin system metrics snapshot", "/api/admin/systemMetrics"),
+        ]
         self.log(
-            f"Starting {self.concurrent_threads} threads, {self.concurrent_iterations} iterations each..."
+            f"Running performance probes with {self.concurrent_threads} threads x {self.concurrent_iterations} iterations"
         )
-        start_time = time.time()
 
-        all_results: List[Dict[str, Any]] = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.concurrent_threads) as executor:
-            futures = [executor.submit(worker) for _ in range(self.concurrent_threads)]
-            for future in concurrent.futures.as_completed(futures):
+        def workload(spec: EndpointSpec) -> None:
+            for _ in range(self.concurrent_iterations):
                 try:
-                    all_results.extend(future.result())
-                except Exception as exc:
-                    self.log(f"Thread failed: {exc}", "ERROR")
+                    self.test_endpoint(spec, log_request=False)
+                except RequestException as exc:
+                    self.log(f"Performance probe error for {spec.name}: {exc}", level="WARN")
 
-        total_time = time.time() - start_time
-        success_count = sum(1 for r in all_results if r["success"])
-        total_requests = len(all_results)
-        success_rate = (success_count / total_requests * 100) if total_requests else 0.0
-
-        self.log(f"Concurrent test completed in {total_time:.2f}s")
-        self.log(f"Success rate: {success_count}/{total_requests} ({success_rate:.1f}%)")
-        if total_requests:
-            avg_time = sum(r["response_time_ms"] for r in all_results) / total_requests
-            self.log(f"Average response time: {avg_time:.2f}ms")
-
-    def test_forced_health_check(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING FORCED HEALTH CHECK")
-        self.log("=" * 60)
-
-        result = self.test_endpoint("/api/monitor/health/check", method="POST")
-        if result["success"]:
-            data = result.get("data", {})
-            self.log(f"? Forced health check: {result['response_time_ms']}ms")
-            self.log(f"   System Status: {data.get('systemStatus', 'Unknown')}")
-            self.log(f"   Active Alerts: {len(data.get('activeAlerts', []))}")
-        else:
-            self.log(f"? Forced health check failed: {result.get('error', 'Failed')}", "ERROR")
-
-    def test_journey_endpoints(self) -> None:
-        self.log("\n" + "=" * 60)
-        self.log("TESTING JOURNEY PLANNING (MONITORING IMPACT)")
-        self.log("=" * 60)
-
-        journeys = [
-            ("/api/train/journey?from=Cape Town&to=Bellville&time=08:00", "Train journey"),
-            ("/api/myciti/journey?source=Civic Centre&target=Airport&departure=09:00", "MyCiti journey"),
-            ("/api/taxi/all-stops", "Taxi stops lookup"),
-        ]
-
-        for endpoint, label in journeys:
-            result = self.test_endpoint(endpoint)
-            if result["success"]:
-                self.log(f"? {label}: {result['response_time_ms']}ms")
-            else:
-                self.log(f"? {label}: {result.get('error', 'Failed')}", "WARN")
-
-        time.sleep(1)
-        recent_calls = self.test_endpoint("/api/admin/MostRecentCall")
-        if recent_calls["success"] and "data" in recent_calls:
-            self.log(f"Recent endpoint calls logged: {len(recent_calls['data'])}")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.concurrent_threads) as executor:
+            for spec in targets:
+                executor.submit(workload, spec)
 
     # ------------------------------------------------------------------
-    # Reporting
+    # Orchestration
     # ------------------------------------------------------------------
-    def generate_report(self) -> Dict[str, Any]:
-        total = len(self.endpoint_results)
-        success = sum(1 for r in self.endpoint_results if r["success"])
-        failure = total - success
-        avg_time = (
-            round(sum(r["response_time_ms"] for r in self.endpoint_results) / total, 2)
-            if total
-            else 0.0
-        )
-        success_rate = (success / total * 100) if total else 0.0
-
-        rating = "CRITICAL ISSUES"
-        if success_rate >= 90:
-            rating = "EXCELLENT"
-        elif success_rate >= 75:
-            rating = "GOOD"
-        elif success_rate >= 50:
-            rating = "NEEDS ATTENTION"
-
-        self.log("\n" + "=" * 60)
-        self.log("MONITORING TEST SUMMARY REPORT")
-        self.log("=" * 60)
-        self.log(f"Total Tests: {total}")
-        self.log(f"Successful: {success}")
-        self.log(f"Failed: {failure}")
-        self.log(f"Success Rate: {success_rate:.1f}%")
-        self.log(f"Average response time: {avg_time:.2f}ms")
-        self.log(f"Status: {rating}")
-
-        summary = {
-            "total": total,
-            "success": success,
-            "failure": failure,
-            "successRate": round(success_rate, 2),
-            "averageResponseTimeMs": avg_time,
-            "rating": rating,
-        }
-        return summary
-
     def run_full_test_suite(self) -> Dict[str, Any]:
         started = datetime.now()
-        self.log("?? STARTING COMPREHENSIVE MONITORING TESTS")
-        self.log(f"Target System: {self.base_url}")
-        self.log(f"Test Start Time: {started.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.log(f"Starting monitoring for {self.label} at {started.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        summary: Dict[str, Any]
         try:
-            self.test_health_monitoring()
-            self.test_graph_monitoring()
-            self.test_admin_monitoring()
-            self.test_service_endpoints()
-            self.test_forced_health_check()
-            self.test_journey_endpoints()
-            self.test_concurrent_monitoring()
-            summary = self.generate_report()
-        except KeyboardInterrupt:
-            self.log("\n? Testing interrupted by user", "WARN")
-            summary = {"interrupted": True}
-        except Exception as exc:
-            self.log(f"\n?? Unexpected error during testing: {exc}", "ERROR")
+            self.bootstrap_context()
+            for group_name, specs in self.build_test_plan():
+                self.log(f"--- Testing {group_name} endpoints ---")
+                for spec in specs:
+                    try:
+                        self.test_endpoint(spec)
+                    except RequestException as exc:
+                        self.log(f"Failed to reach {spec.name}: {exc}", level="ERROR")
+            self.run_performance_checks()
+            summary = self._build_summary()
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"Unexpected error during monitoring: {exc}", level="ERROR")
             summary = {"error": str(exc)}
 
         finished = datetime.now()
-        self.log(f"\n? Testing completed at {finished.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.log(f"Monitoring completed at {finished.strftime('%Y-%m-%d %H:%M:%S')}")
 
         return {
             "base_url": self.base_url,
@@ -389,6 +426,22 @@ class TransportSystemMonitor:
             "endpoints": list(self.endpoint_results),
         }
 
+    def _build_summary(self) -> Dict[str, Any]:
+        total = len(self.endpoint_results)
+        success = sum(1 for item in self.endpoint_results if item.get("success"))
+        average_latency = (
+            sum(item.get("response_time_ms", 0.0) for item in self.endpoint_results) / total
+            if total
+            else 0.0
+        )
+        return {
+            "totalEndpoints": total,
+            "successful": success,
+            "failed": total - success,
+            "successRate": round((success / total) * 100, 2) if total else 0.0,
+            "averageLatencyMs": round(average_latency, 2),
+        }
+
 
 # ----------------------------------------------------------------------
 # CLI orchestration
@@ -396,7 +449,7 @@ class TransportSystemMonitor:
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the Public Transportation Journey Planner monitoring suite."
+        description="Run the Public Transportation Journey Planner monitoring suite",
     )
     parser.add_argument(
         "--target",
@@ -442,8 +495,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--fail-threshold",
         type=float,
-        default=50.0,
-        help="Minimum success rate percentage required for zero exit code (default: 50).",
+        default=80.0,
+        help="Minimum success rate percentage required for zero exit code (default: 80).",
     )
     return parser.parse_args(argv)
 
@@ -472,7 +525,7 @@ def export_report(results: List[Dict[str, Any]], export_path: Path) -> None:
     export_path.parent.mkdir(parents=True, exist_ok=True)
     with export_path.open("w", encoding="utf-8") as handle:
         json.dump(results, handle, indent=2, default=str)
-    print(f"\n?? Report exported to: {export_path}")
+    print(f"\n? Report exported to: {export_path}")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -482,14 +535,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.export:
         export_report(results, args.export)
 
-    worst_rate = min(
-        result.get("summary", {}).get("successRate", 0.0)
-        for result in results
-    ) if results else 0.0
+    if not results:
+        print("\n? Monitoring produced no results.")
+        return 1
 
+    worst_rate = min(result.get("summary", {}).get("successRate", 0.0) for result in results)
     if worst_rate < args.fail_threshold:
         print(
-            f"\n??  Lowest success rate {worst_rate:.1f}% is below threshold {args.fail_threshold:.1f}%"
+            f"\n? Lowest success rate {worst_rate:.1f}% is below threshold {args.fail_threshold:.1f}%"
         )
         return 1
 

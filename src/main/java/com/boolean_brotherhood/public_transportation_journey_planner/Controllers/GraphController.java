@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph.Mode;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayType;
@@ -189,9 +191,24 @@ public class GraphController {
     /** Metrics endpoint */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        Map<String, Object> metrics = new HashMap<>();
-        metrics.put("totalStops", graph.getStops().size());
-        metrics.put("totalTrips", graph.getTrips().size());
-        return metrics;
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("totalStops", graph.getStops().size());
+        snapshot.put("totalTrips", graph.getTrips().size());
+
+        Map<String, Object> stopsByMode = new LinkedHashMap<>();
+        stopsByMode.put("train", graph.getTrainGraph().getTrainStops().size());
+        stopsByMode.put("myciti", graph.getMyCitiBusGraph().getMyCitiStops().size());
+        stopsByMode.put("ga", graph.getGABusGraph().getGAStops().size());
+        stopsByMode.put("taxi", graph.getTaxiGraph().getTaxiStops().size());
+        snapshot.put("stopsByMode", stopsByMode);
+
+        Map<String, Object> tripsByMode = new LinkedHashMap<>();
+        tripsByMode.put("train", graph.getTrainGraph().getTrainTrips().size());
+        tripsByMode.put("myciti", graph.getMyCitiBusGraph().getMyCitiTrips().size());
+        tripsByMode.put("ga", graph.getGABusGraph().getGATrips().size());
+        tripsByMode.put("taxi", graph.getTaxiGraph().getTaxiTrips().size());
+        snapshot.put("tripsByMode", tripsByMode);
+
+        return MetricsResponseBuilder.build("graph", snapshot, "/api/graph");
     }
 }

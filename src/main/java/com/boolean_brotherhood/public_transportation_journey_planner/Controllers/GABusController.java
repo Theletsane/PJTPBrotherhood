@@ -3,6 +3,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner.Controller
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
@@ -36,14 +39,13 @@ public class GABusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        
-        SystemLog.log_endpoint("/api/GA/metrics");  
-        Map<String, Object> metrics = new HashMap<>();
-        Map<String, Long> GAmetrics = graph.getMetrics();
-        for(String key: GAmetrics.keySet()){
-            metrics.put(key, GAmetrics.get(key));
-        }
-        return metrics;
+        SystemLog.log_endpoint("/api/GA/metrics");
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        graph.getMetrics().forEach(metrics::put);
+        metrics.put("stopCount", graph.getGAStops().size());
+        metrics.put("tripCount", graph.getGATrips().size());
+        metrics.put("routesTracked", graph.getGATrips().stream().map(GATrip::getRouteName).filter(java.util.Objects::nonNull).distinct().count());
+        return MetricsResponseBuilder.build("gaBus", metrics, "/api/GA/");
     }
 
     /**
@@ -102,7 +104,8 @@ public class GABusController {
             @RequestParam String source,
             @RequestParam String target,
             @RequestParam(defaultValue = "08:00") String departure,
-            @RequestParam(defaultValue = "4") int maxRounds) {
+            @RequestParam(defaultValue = "4") int maxRounds,
+            @RequestParam(required = false) String day) {
         
         SystemLog.log_endpoint("/api/GA/journey");
         LocalTime departureTime;
@@ -114,7 +117,9 @@ public class GABusController {
             return error;
         }
 
-        GABusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds);
+        Trip.DayType dayType = parseDay(day);
+
+        GABusJourney journey = raptor.runRaptor(source, target, departureTime, maxRounds, dayType);
 
         if (journey == null || journey.getTrips().isEmpty()) {
             return Map.of("error", "No journey found");
@@ -156,4 +161,15 @@ public class GABusController {
 
 
     
+    private Trip.DayType parseDay(String day) {
+        if (day == null || day.isBlank()) {
+            return Trip.DayType.WEEKDAY;
+        }
+        try {
+            return Trip.DayType.valueOf(day.trim().toUpperCase());
+        } catch (Exception e) {
+            return Trip.DayType.WEEKDAY;
+        }
+    }
+
 }

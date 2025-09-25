@@ -3,6 +3,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner.Controller
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
@@ -115,28 +117,39 @@ public class TaxiController {
         return response;
     }
 
-    /**
+        /**
      * Return recorded API response metrics
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
         SystemLog.log_endpoint("api/taxi/metrics");
-        Map<String, Object> result = new HashMap<>();
-        Map<String, Long> taxiMetrics = graph.getMetrics();
-        for(String key: taxiMetrics.keySet()){
-            result.put(key, taxiMetrics.get(key));
-        }
-        for (Map.Entry<String, List<Long>> entry : responseMetrics.entrySet()) {
-            List<Long> times = entry.getValue();
-            double avg = times.stream().mapToLong(Long::longValue).average().orElse(0);
-            result.put(entry.getKey(), Map.of(
-                "count", times.size(),
-                "average_ms", avg,
-                "all_times_ms", times
-            ));
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        graph.getMetrics().forEach(metrics::put);
+        metrics.put("stopCount", graph.getTaxiStops().size());
+        metrics.put("tripCount", graph.getTaxiTrips().size());
+
+        if (!responseMetrics.isEmpty()) {
+            Map<String, Object> timingSnapshot = new LinkedHashMap<>();
+            for (Map.Entry<String, List<Long>> entry : responseMetrics.entrySet()) {
+                List<Long> times = entry.getValue();
+                if (times.isEmpty()) {
+                    continue;
+                }
+                long max = times.stream().mapToLong(Long::longValue).max().orElse(0L);
+                long min = times.stream().mapToLong(Long::longValue).min().orElse(0L);
+                double avg = times.stream().mapToLong(Long::longValue).average().orElse(0.0);
+                long last = times.get(times.size() - 1);
+                timingSnapshot.put(entry.getKey(), Map.of(
+                        "count", times.size(),
+                        "averageMs", Math.round(avg * 100.0) / 100.0,
+                        "maxMs", max,
+                        "minMs", min,
+                        "lastMs", last));
+            }
+            metrics.put("localTimings", timingSnapshot);
         }
 
-
-        return result;
+        return MetricsResponseBuilder.build("taxi", metrics, "/api/taxi/");
     }
+
 }

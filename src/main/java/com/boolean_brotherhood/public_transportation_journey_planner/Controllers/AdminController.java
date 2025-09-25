@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +30,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
+import com.boolean_brotherhood.public_transportation_journey_planner.PerformanceMetricsRegistry;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -142,14 +145,16 @@ public class AdminController {
     @GetMapping("/systemMetrics")
     public Map<String, Object> getAllMetrics() {
         SystemLog.log_endpoint("/api/admin/systemMetrics");
-        Map<String, Object> metrics = new HashMap<>();
+        Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("train", trainController.getMetrics());
         metrics.put("taxi", taxiController.getMetrics());
         metrics.put("bus", busController.getMetrics());
+        metrics.put("performanceOverview", PerformanceMetricsRegistry.getOverview());
+        metrics.put("trackedEndpoints", PerformanceMetricsRegistry.getEndpointSummaries());
         SystemLog.log_event("ADMIN", "Collected subsystem metrics", "INFO", Map.of(
                 "sections", metrics.keySet().size()
         ));
-        return metrics;
+        return MetricsResponseBuilder.build("admin", metrics, "/api/admin");
     }
     
     @GetMapping("/GetFileInUse")
