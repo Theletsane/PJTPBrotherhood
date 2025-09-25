@@ -104,14 +104,14 @@ public class GABusGraph {
      * @return an unmodifiable list of all GA stops in the network
      */
     public List<GAStop> getGAStops() {
-        return this.totalStops;
+        return totalStops;
     }
 
     /**
      * @return an unmodifiable list of all GA trips (legs) in the network
      */
     public List<GATrip> getGATrips() {
-        return this.totalTrips;
+        return totalTrips;
     }
 
     /**
