@@ -58,6 +58,7 @@ public class Graph {
         taxiGraph.loadData();               // your taxi loader
         trainGraph.loadTrainStops();
         trainGraph.LoadTrainTrips();
+        
         long elapsed = System.currentTimeMillis() - start;
         SystemLog.log_event("GRAPH", "Loaded base graph data", "INFO", Map.of(
                 "elapsedMs", elapsed,
