@@ -15,8 +15,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.M
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
 @RestController
 @RequestMapping("/api/myciti")
@@ -35,13 +34,24 @@ public class MyCitiBusController {
      */
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        
         SystemLog.log_endpoint("/api/myciti/metrics");  
         Map<String, Object> metrics = new HashMap<>();
-        Map<String, Long> MyCitimetrics = graph.getMetrics();
-        for(String key: MyCitimetrics.keySet()){
-            metrics.put(key, MyCitimetrics.get(key));
+        
+        // Get base metrics from graph
+        Map<String, Long> myCitiMetrics = graph.getMetrics();
+        for(String key: myCitiMetrics.keySet()){
+            metrics.put(key, myCitiMetrics.get(key));
         }
+        
+        // Ensure trip and stop counts are included
+        List<MyCitiStop> stops = graph.getMyCitiStops();
+        List<MyCitiTrip> trips = graph.getMyCitiTrips();
+        
+        metrics.put("totalStops", stops != null ? stops.size() : 0);
+        metrics.put("totalTrips", trips != null ? trips.size() : 0);
+        metrics.put("stopsLoaded", stops != null && !stops.isEmpty());
+        metrics.put("tripsLoaded", trips != null && !trips.isEmpty());
+        
         return metrics;
     }
 
@@ -49,49 +59,19 @@ public class MyCitiBusController {
      * Get all stops
      */
     @GetMapping("/stops")
-    public List<Map<String, Object>> getStops() {
+    public List<MyCitiStop> getStops() {
         SystemLog.log_endpoint("/api/myciti/stops");
-        long startTime = System.currentTimeMillis();
-        List<MyCitiStop> stops = graph.getMyCitiStops();
-        List<Map<String, Object>> response = new ArrayList<>();
-        for (MyCitiStop stop : stops) {
-            response.add(Map.of(
-                "name", stop.getName(),
-                "latitude", stop.getLatitude(),
-                "longitude", stop.getLongitude()
-            ));
-        }
-
-        long elapsed = System.currentTimeMillis() - startTime;
-        //recordResponseTime("/api/myciti/stops", elapsed);
-
-        return response;
+        return graph.getMyCitiStops();
     }
-    
 
     /**
      * Get all trips
      */
     @GetMapping("/trips")
-    public List<Map<String, Object>> getTrips() {
+    public List<MyCitiTrip> getTrips() {
         SystemLog.log_endpoint("/api/myciti/trips");
-        long startTime = System.currentTimeMillis();
-
-        List<Map<String, Object>> response = new ArrayList<>();
-        for (MyCitiTrip trip : graph.getMyCitiTrips()) {
-            response.add(Map.of(
-                "from", trip.getDepartureStop().getName(),
-                "to", trip.getDestinationStop().getName(),
-                "duration", trip.getDuration()
-            ));
-        }
-
-        long elapsed = System.currentTimeMillis() - startTime;
-        //recordResponseTime("/all-trips", elapsed);
-
-        return response;
+        return graph.getMyCitiTrips();
     }
-
 
     @GetMapping("/logs")
     public List<String> getLogs() {
