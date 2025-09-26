@@ -227,7 +227,7 @@ public final class MyCitiBusGraph{
             }
         } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
-            System.out.println("Error reading CSV file: " + routePath);
+            System.out.println("====Error reading CSV file: " + routePath);
         }
     
     }
