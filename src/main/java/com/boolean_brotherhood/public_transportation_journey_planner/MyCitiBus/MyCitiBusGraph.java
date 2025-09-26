@@ -126,8 +126,8 @@ public final class MyCitiBusGraph{
                 Path dir1RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
-                getTripsInRoute(dir1RoutePath, routeFullName);
-                getTripsInRoute(dir2RoutePath, routeFullName);
+                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
+                getTripsInRoute("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
 
                 }
             }
@@ -141,10 +141,10 @@ public final class MyCitiBusGraph{
     }
 
 
-    public void getTripsInRoute(Path routePath, String routeFullName) {
+    public void getTripsInRoute(String routePath, String routeFullName) {
         int missingStops = 0;
 
-        if (Files.exists(routePath)) {
+        if (MyFileLoader.resourceExists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = Files.newBufferedReader(routePath)) {
                 String headerLine = br.readLine();
