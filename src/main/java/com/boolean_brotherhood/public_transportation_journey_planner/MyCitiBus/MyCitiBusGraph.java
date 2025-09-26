@@ -146,7 +146,7 @@ public final class MyCitiBusGraph{
 
         if (MyFileLoader.resourceExists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
-            try (BufferedReader br = Files.newBufferedReader(routePath)) {
+            try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(routePath)) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
                     LOGGER.log(Level.WARNING, "Empty route file: {0}", routePath);
