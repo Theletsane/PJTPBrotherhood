@@ -1,60 +1,4 @@
-def debug_data_loading_issues(self):
-        """Diagnose potential data loading and system health issues"""
-        self.log("\n" + "=" * 60)
-        self.log("DIAGNOSING DATA LOADING ISSUES")
-        self.log("=" * 60)
-        
-        # Check each controller's data status
-        controllers_data = [
-            ("/api/train/metrics", "Train"),
-            ("/api/myciti/metrics", "MyCiti"),
-            ("/api/GA/metrics", "GA Bus"),
-            ("/api/taxi/metrics", "Taxi"),
-        ]
-        
-        for endpoint, name in controllers_data:
-            result = self.test_endpoint(endpoint)
-            if result["success"] and "data" in result:
-                metrics = result["data"].get("metrics", {})
-                stop_count = metrics.get("stopCount", metrics.get("totalStops", 0))
-                trip_count = metrics.get("tripCount", metrics.get("totalTrips", 0))
-                load_time = metrics.get("loadTimeMs", "N/A")
-                
-                status = "✅ HEALTHY" if stop_count > 0 and trip_count > 0 else "⚠️ ISSUES"
-                self.log(f"{status} {name}: {stop_count} stops, {trip_count} trips, load: {load_time}ms")
-                
-                if stop_count == 0:
-                    self.log(f"   🔍 {name} has no stops - check data file loading")
-                if trip_count == 0:
-                    self.log(f"   🔍 {name} has no trips - check schedule data")
-            else:
-                self.log(f"❌ {name}: Cannot retrieve metrics")
-        
-        # Check file access issues
-        self.log("\nFile Access Diagnostics:")
-        list_result = self.test_endpoint("/api/admin/list")
-        if not list_result["success"]:
-            if list_result["status_code"] == 500:
-                self.log("🔍 Root data directory access failed - check classpath resources")
-                self.log("   Verify CapeTownTransitData/ exists in src/main/resources/")
-            elif list_result["status_code"] == 404:
-                self.log("🔍 Data directory not found - check resource configuration")
-        
-        # Check system logs for errors
-        logs_result = self.test_endpoint("/api/admin/systemLogs?limit=5")
-        if logs_result["success"] and "data" in logs_result:
-            error_logs = [log for log in logs_result["data"] 
-                         if isinstance(log, dict) and log.get("level") == "ERROR"]
-            if error_logs:
-                self.log(f"\nRecent Errors Found ({len(error_logs)}):")
-                for log in error_logs[:3]:  # Show first 3 errors
-                    self.log(f"   ⚠️ {log.get('timestamp', 'Unknown time')}: {log.get('message', 'No message')}")
-        
-        self.log("\nRecommended Actions:")
-        self.log("1. Check if CapeTownTransitData/ directory exists in resources")
-        self.log("2. Verify data files are properly formatted and accessible")
-        self.log("3. Review application startup logs for loading errors")
-        self.log("4. Ensure all required data files are present for each transport mode")#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Enhanced Transport System Monitor Test Script
 
@@ -83,7 +27,7 @@ import concurrent.futures
 import threading
 
 class TransportSystemMonitor:
-    def __init__(self, base_url: str = "https://pjtp-brotherhood.up.railway.app"):
+    def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
         self.session.timeout = 15
@@ -241,44 +185,27 @@ class TransportSystemMonitor:
         self.log("TESTING SYSTEM MONITORING CONTROLLER")
         self.log("=" * 60)
         
-        # Test endpoints with different expected statuses
         monitoring_endpoints = [
-            ("/api/monitor/health", "System health check", 200, True),  # May return 503 if unhealthy
-            ("/api/monitor/summary", "System summary", 200, False),
-            ("/api/monitor/ready", "System readiness", 200, True),  # May return 503 if not ready
-            ("/api/monitor/alerts", "Active alerts", 200, False),
-            ("/api/monitor/alerts/all", "All alerts", 200, False),
-            ("/api/monitor/stats", "Monitoring statistics", 200, False),
-            ("/api/monitor/performance", "Performance metrics", 200, False),
+            ("/api/monitor/health", "System health check"),
+            ("/api/monitor/summary", "System summary"),
+            ("/api/monitor/ready", "System readiness"),
+            ("/api/monitor/alerts", "Active alerts"),
+            ("/api/monitor/alerts/all", "All alerts"),
+            ("/api/monitor/stats", "Monitoring statistics"),
+            ("/api/monitor/performance", "Performance metrics"),
         ]
         
-        for endpoint, description, expected_status, allow_503 in monitoring_endpoints:
-            result = self.test_endpoint(endpoint, expected_status=expected_status)
-            
-            # Handle 503 Service Unavailable as acceptable for health/ready endpoints
-            if not result["success"] and result["status_code"] == 503 and allow_503:
-                self.log(f"⚠️ {description} (GET): HTTP 503 - System not ready/healthy (expected)")
-                if "data" in result:
-                    try:
-                        data = result["data"]
-                        if isinstance(data, dict):
-                            self.log(f"   Status: {data.get('status', 'UNKNOWN')}")
-                            self.log(f"   Ready: {data.get('ready', False)}")
-                    except:
-                        pass
-            else:
-                self._log_endpoint_result(result, description)
+        for endpoint, description in monitoring_endpoints:
+            result = self.test_endpoint(endpoint)
+            self._log_endpoint_result(result, description)
             
             # Special handling for health check
-            if endpoint == "/api/monitor/health" and "data" in result:
-                try:
-                    health_data = result["data"] if isinstance(result["data"], dict) else {}
-                    system_healthy = health_data.get("systemHealthy", False)
-                    self.log(f"   System Status: {'HEALTHY' if system_healthy else 'UNHEALTHY'}")
-                    self.log(f"   Health Checks: {health_data.get('totalHealthChecks', 'N/A')}")
-                    self.log(f"   Critical Errors: {health_data.get('criticalErrors', 'N/A')}")
-                except:
-                    pass
+            if endpoint == "/api/monitor/health" and result["success"] and "data" in result:
+                health_data = result["data"]
+                system_healthy = health_data.get("systemHealthy", False)
+                self.log(f"   System Status: {'HEALTHY' if system_healthy else 'UNHEALTHY'}")
+                self.log(f"   Health Checks: {health_data.get('totalHealthChecks', 'N/A')}")
+                self.log(f"   Critical Errors: {health_data.get('criticalErrors', 'N/A')}")
         
         # Test graph-specific monitoring
         graphs = ["train", "myciti", "ga", "taxi"]
@@ -465,30 +392,16 @@ class TransportSystemMonitor:
         self.log("TESTING ADMIN FILE OPERATIONS")
         self.log("=" * 60)
         
-        # Test file listing with better error handling
+        # Test file listing and reading (safe operations)
         file_endpoints = [
-            ("/api/admin/list", "List root data files", 200),
-            ("/api/admin/list?subPath=Train", "List train data files", 200),
-            ("/api/admin/list?subPath=MyCitiBus", "List MyCiti data files", 200),
+            ("/api/admin/list", "List root data files"),
+            ("/api/admin/list?subPath=Train", "List train data files"),
+            ("/api/admin/list?subPath=MyCitiBus", "List MyCiti data files"),
         ]
         
-        for endpoint, description, expected_status in file_endpoints:
-            result = self.test_endpoint(endpoint, expected_status=expected_status)
-            
-            # Handle file listing errors more gracefully
-            if not result["success"]:
-                if result["status_code"] == 500:
-                    self.log(f"⚠️ {description}: Internal Server Error - Data directory may not exist")
-                elif result["status_code"] == 404:
-                    self.log(f"⚠️ {description}: Not Found - Subdirectory may not exist")
-                else:
-                    self._log_endpoint_result(result, description)
-            else:
-                self._log_endpoint_result(result, description)
-                if "data" in result and isinstance(result["data"], list):
-                    self.log(f"   Files found: {len(result['data'])}")
-                    if result["data"]:
-                        self.log(f"   Example files: {result['data'][:3]}")  # Show first 3 files
+        for endpoint, description in file_endpoints:
+            result = self.test_endpoint(endpoint)
+            self._log_endpoint_result(result, description)
     
     def generate_comprehensive_report(self):
         """Generate a comprehensive test report"""
@@ -570,7 +483,6 @@ class TransportSystemMonitor:
             # Integration and load testing
             self.test_journey_planning_integration()
             self.test_file_operations()
-            self.debug_data_loading_issues()
             self.test_concurrent_load()
             
             # Generate comprehensive report

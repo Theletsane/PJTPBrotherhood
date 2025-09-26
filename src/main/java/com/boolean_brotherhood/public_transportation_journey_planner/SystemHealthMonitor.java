@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
 
@@ -36,6 +38,9 @@ public class SystemHealthMonitor {
     
     @Autowired(required = false)
     private MyCitiBusGraph busGraph;
+    
+    @Autowired(required = false)
+    private GABusGraph gaBusGraph;
     
     @Autowired(required = false)
     private TaxiGraph taxiGraph;
@@ -176,10 +181,15 @@ public class SystemHealthMonitor {
         graphStatuses.put("train", trainHealth);
         graphHealthStatus.put("train", trainHealth);
         
-        // Check Bus Graph
-        GraphHealth busHealth = checkBusGraph();
-        graphStatuses.put("bus", busHealth);
-        graphHealthStatus.put("bus", busHealth);
+        // Check MyCiti Bus Graph
+        GraphHealth mycitiBusHealth = checkMyCitiBusGraph();
+        graphStatuses.put("myciti", mycitiBusHealth);
+        graphHealthStatus.put("myciti", mycitiBusHealth);
+        
+        // Check GA Bus Graph
+        GraphHealth gaBusHealth = checkGABusGraph();
+        graphStatuses.put("ga", gaBusHealth);
+        graphHealthStatus.put("ga", gaBusHealth);
         
         // Check Taxi Graph
         GraphHealth taxiHealth = checkTaxiGraph();
@@ -188,7 +198,8 @@ public class SystemHealthMonitor {
         
         // Calculate overall system health
         boolean allGraphsHealthy = trainHealth.getStatus().equals("HEALTHY") &&
-                                  busHealth.getStatus().equals("HEALTHY") &&
+                                  mycitiBusHealth.getStatus().equals("HEALTHY") &&
+                                  gaBusHealth.getStatus().equals("HEALTHY") &&
                                   taxiHealth.getStatus().equals("HEALTHY");
         
         systemHealthy.set(allGraphsHealthy);
@@ -278,9 +289,9 @@ public class SystemHealthMonitor {
     }
 
     /**
-     * Checks the health of the Bus Graph
+     * Checks the health of the MyCiti Bus Graph
      */
-    private GraphHealth checkBusGraph() {
+    private GraphHealth checkMyCitiBusGraph() {
         GraphHealth health = new GraphHealth("MyCitiBusGraph");
         
         try {
@@ -299,12 +310,12 @@ public class SystemHealthMonitor {
             
             if (stops == null || stops.isEmpty()) {
                 health.setStatus("CRITICAL");
-                health.setErrorMessage("No bus stops loaded");
-                health.addIssue("Bus stops list is empty or null");
+                health.setErrorMessage("No MyCiti bus stops loaded");
+                health.addIssue("MyCiti bus stops list is empty or null");
             } else if (trips == null || trips.isEmpty()) {
                 health.setStatus("CRITICAL");
-                health.setErrorMessage("No bus trips loaded");
-                health.addIssue("Bus trips list is empty or null");
+                health.setErrorMessage("No MyCiti bus trips loaded");
+                health.addIssue("MyCiti bus trips list is empty or null");
             } else {
                 health.setHasData(true);
                 health.setStopCount(stops.size());
@@ -313,10 +324,10 @@ public class SystemHealthMonitor {
                 // Check for reasonable data volumes
                 if (stops.size() < 10) {
                     health.setStatus("WARNING");
-                    health.addIssue("Suspiciously low number of bus stops: " + stops.size());
+                    health.addIssue("Suspiciously low number of MyCiti bus stops: " + stops.size());
                 } else if (trips.size() < 50) {
                     health.setStatus("WARNING");
-                    health.addIssue("Suspiciously low number of bus trips: " + trips.size());
+                    health.addIssue("Suspiciously low number of MyCiti bus trips: " + trips.size());
                 } else {
                     health.setStatus("HEALTHY");
                 }
@@ -328,13 +339,81 @@ public class SystemHealthMonitor {
                         health.setLoadTimeMs(metrics.get("stopsLoadTimeMs"));
                     }
                 } catch (Exception e) {
-                    health.addIssue("Error retrieving bus graph metrics: " + e.getMessage());
+                    health.addIssue("Error retrieving MyCiti bus graph metrics: " + e.getMessage());
                 }
             }
             
         } catch (Exception e) {
             health.setStatus("CRITICAL");
-            health.setErrorMessage("Exception during bus graph check: " + e.getMessage());
+            health.setErrorMessage("Exception during MyCiti bus graph check: " + e.getMessage());
+            health.addIssue("Unexpected error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
+        
+        health.setLastChecked(LocalDateTime.now());
+        return health;
+    }
+
+    /**
+     * Checks the health of the GA Bus Graph
+     */
+    private GraphHealth checkGABusGraph() {
+        GraphHealth health = new GraphHealth("GABusGraph");
+        
+        try {
+            if (gaBusGraph == null) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("GABusGraph not injected/loaded");
+                health.addIssue("GABusGraph bean is null - dependency injection failed");
+                return health;
+            }
+            
+            health.setLoaded(true);
+            
+            // Check if data is loaded
+            List<?> stops = gaBusGraph.getGAStops();
+            List<?> trips = gaBusGraph.getGATrips();
+            
+            if (stops == null || stops.isEmpty()) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("No GA bus stops loaded");
+                health.addIssue("GA bus stops list is empty or null");
+            } else if (trips == null || trips.isEmpty()) {
+                health.setStatus("CRITICAL");
+                health.setErrorMessage("No GA bus trips loaded");
+                health.addIssue("GA bus trips list is empty or null");
+            } else {
+                health.setHasData(true);
+                health.setStopCount(stops.size());
+                health.setTripCount(trips.size());
+                
+                // Check for reasonable data volumes
+                if (stops.size() < 10) {
+                    health.setStatus("WARNING");
+                    health.addIssue("Suspiciously low number of GA bus stops: " + stops.size());
+                } else if (trips.size() < 50) {
+                    health.setStatus("WARNING");
+                    health.addIssue("Suspiciously low number of GA bus trips: " + trips.size());
+                } else {
+                    health.setStatus("HEALTHY");
+                }
+                
+                // Check metrics if available
+                try {
+                    Map<String, Long> metrics = gaBusGraph.getMetrics();
+                    if (metrics.containsKey("stopsLoadTimeMs")) {
+                        Object loadTime = metrics.get("stopsLoadTimeMs");
+                        if (loadTime instanceof Long) {
+                            health.setLoadTimeMs((Long) loadTime);
+                        }
+                    }
+                } catch (Exception e) {
+                    health.addIssue("Error retrieving GA bus graph metrics: " + e.getMessage());
+                }
+            }
+            
+        } catch (Exception e) {
+            health.setStatus("CRITICAL");
+            health.setErrorMessage("Exception during GA bus graph check: " + e.getMessage());
             health.addIssue("Unexpected error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
         
@@ -528,6 +607,12 @@ public class SystemHealthMonitor {
         memory.put("freeMemoryMB", runtime.freeMemory() / (1024 * 1024));
         memory.put("usedMemoryMB", (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024));
         summary.put("memory", memory);
+
+        Map<String, Object> performance = new LinkedHashMap<>();
+        performance.put("overview", PerformanceMetricsRegistry.getOverview());
+        performance.put("endpointSummaries", PerformanceMetricsRegistry.getEndpointSummaries());
+        performance.put("recentSamples", PerformanceMetricsRegistry.getRecentSamples().stream().limit(25).toList());
+        summary.put("performance", performance);
         
         return summary;
     }

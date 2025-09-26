@@ -10,8 +10,10 @@
 
 package com.boolean_brotherhood.public_transportation_journey_planner.Controllers;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,7 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemHealthMonitor;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.PerformanceMetricsRegistry;
 
 @RestController
 @RequestMapping("/api/monitor")
@@ -213,21 +217,43 @@ public class SystemMonitoringController {
             Map<String, Object> summary = healthMonitor.getSystemSummary();
             
             // Add additional monitoring-specific stats
-            Map<String, Object> stats = Map.of(
-                "systemStatus", summary.get("overallStatus"),
-                "uptime", summary.get("uptime"),
-                "totalHealthChecks", summary.get("totalHealthChecks"),
-                "criticalErrors", summary.get("criticalErrors"),
-                "activeAlerts", summary.get("activeAlerts"),
-                "memory", summary.get("memory"),
-                "graphStatuses", summary.get("graphStatuses"),
-                "lastCheckTime", java.time.LocalDateTime.now().toString()
-            );
-            
-            return ResponseEntity.ok(stats);
+            Map<String, Object> stats = new LinkedHashMap<>();
+            stats.put("systemStatus", summary.get("overallStatus"));
+            stats.put("uptime", summary.get("uptime"));
+            stats.put("totalHealthChecks", summary.get("totalHealthChecks"));
+            stats.put("criticalErrors", summary.get("criticalErrors"));
+            stats.put("activeAlerts", summary.get("activeAlerts"));
+            stats.put("memory", summary.get("memory"));
+            stats.put("graphStatuses", summary.get("graphStatuses"));
+            stats.put("lastCheckTime", java.time.LocalDateTime.now().toString());
+
+            Map<String, Object> response = MetricsResponseBuilder.build("systemMonitor", stats, "/api/monitor");
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Stats retrieval failed: " + e.getMessage()));
         }
     }
+
+/**
+ * Get performance metrics from PerformanceMetricsRegistry
+ */
+@GetMapping("/performance")
+public ResponseEntity<Map<String, Object>> getPerformanceMetrics() {
+    SystemLog.log_endpoint("/api/monitor/performance");
+    try {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("overview", PerformanceMetricsRegistry.getOverview());
+        payload.put("endpoints", PerformanceMetricsRegistry.getEndpointSummaries());
+        
+        List<Map<String, Object>> samples = PerformanceMetricsRegistry.getRecentSamples();
+        payload.put("recentSamples", samples.stream().limit(25).collect(Collectors.toList()));
+        payload.put("timestamp", java.time.LocalDateTime.now().toString());
+        
+        return ResponseEntity.ok(payload);
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Performance metrics retrieval failed: " + e.getMessage()));
+    }
+}
 }

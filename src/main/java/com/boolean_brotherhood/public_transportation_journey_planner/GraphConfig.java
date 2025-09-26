@@ -3,10 +3,10 @@ package com.boolean_brotherhood.public_transportation_journey_planner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 
 @Configuration
 public class GraphConfig {
@@ -14,8 +14,8 @@ public class GraphConfig {
     @Bean
     public Graph graph() throws Exception {
         Graph g = new Graph();
-        g.loadGraphData();       // load stops + trips
-        g.buildCombinedGraph();  // precompute connectivity
+        g.loadGraphData(); // load stops + trips
+        g.buildCombinedGraph(); // precompute connectivity
         return g;
     }
 
@@ -26,8 +26,15 @@ public class GraphConfig {
 
     @Bean
     public MyCitiBusGraph myCitiBusGraph(Graph graph) {
-        return graph.getMyCitiBusGraph();
+        MyCitiBusGraph g = graph.getMyCitiBusGraph();
+        if (g == null) {
+            System.err.println("⚠️ MyCitiBusGraph is NULL when GraphConfig runs!");
+        } else {
+            System.out.println("✅ MyCitiBusGraph loaded with " + g.getMyCitiStops().size() + " stops");
+        }
+        return g;
     }
+
 
     @Bean
     public TaxiGraph taxiGraph(Graph graph) {

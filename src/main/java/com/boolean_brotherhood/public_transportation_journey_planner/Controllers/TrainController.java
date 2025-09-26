@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,6 +22,8 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Train.Route
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph.TrainRaptor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
+import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
@@ -48,17 +52,17 @@ public class TrainController {
     /** Get all train stops */
     @GetMapping("/stops")
     public List<Map<String, Object>> getAllStops() {
-        List<Map<String, Object>> stops = new ArrayList<>();
-        for (TrainStop stop : trainGraph.getTrainStops()) {
+        List<Map<String, Object>> stopMaps = new ArrayList<>();
+        List<TrainStop> stops = trainGraph.getTrainStops();
+        stops.sort(Comparator.comparing(TrainStop::getName, String.CASE_INSENSITIVE_ORDER));
+        for (TrainStop stop : stops) {
             Map<String, Object> stopMap = new HashMap<>();
-            stopMap.put("id", stop.getStopCode());
             stopMap.put("name", stop.getName());
             stopMap.put("latitude", stop.getLatitude());
             stopMap.put("longitude", stop.getLongitude());
-            stopMap.put("address", stop.getAddress());
-            stops.add(stopMap);
+            stopMaps.add(stopMap);
         }
-        return stops;
+        return stopMaps;
     }
 
     /** Get a single stop by name */
@@ -340,7 +344,12 @@ public class TrainController {
 
     @GetMapping("/metrics")
     public Map<String, Object> getMetrics() {
-        return trainGraph.getMetrics();
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        trainGraph.getMetrics().forEach(metrics::put);
+        metrics.put("stopCount", trainGraph.getTrainStops().size());
+        metrics.put("tripCount", trainGraph.getTrainTrips().size());
+        metrics.put("registeredRoutes", trainGraph.routeNumbers.size());
+        return MetricsResponseBuilder.build("train", metrics, "/api/train/");
     }
 
     /** Get all trips departing from a stop */
