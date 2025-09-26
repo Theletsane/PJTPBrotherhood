@@ -1,0 +1,178 @@
+graph TB
+    %% Core Domain Classes
+    Stop[Stop<br/>Abstract base class<br/>- name, coordinates<br/>- trips list]
+    BusStop[BusStop<br/>extends Stop<br/>- routeCodes<br/>- company]
+    Trip[Trip<br/>- departure/destination stops<br/>- duration, dayType<br/>- mode, departureTime]
+    Journey[Journey<br/>- List of trips<br/>- total duration]
+    
+    %% Graph Classes
+    Graph[Graph<br/>Unified multimodal graph<br/>- combines all transport modes<br/>- RAPTOR routing]
+    BusGraph[BusGraph<br/>Bus-only graph<br/>- MyCiTi + Golden Arrow<br/>- RAPTOR + CSA routing]
+    
+    %% Transport-specific Graphs
+    TaxiGraph[TaxiGraph<br/>Referenced via Graph]
+    TrainGraph[TrainGraph<br/>Referenced via Graph]
+    MyCitiBusGraph[MyCitiBusGraph<br/>Referenced via Graph/BusGraph]
+    GABusGraph[GABusGraph<br/>Referenced via Graph/BusGraph]
+    
+    %% Routing Components
+    RaptorRouter[BusGraph.RaptorRouter<br/>RAPTOR algorithm implementation]
+    ConnectionScanRouter[BusGraph.ConnectionScanRouter<br/>Connection Scan algorithm]
+    Raptor[Graph.Raptor<br/>Inner class for unified routing]
+    
+    %% Spring Configuration
+    GraphConfig[GraphConfig<br/>@Configuration<br/>Spring bean setup]
+    WebConfig[WebConfig<br/>@Configuration<br/>CORS + Interceptors]
+    
+    %% Monitoring & Utilities
+    SystemLog[SystemLog<br/>Static utility<br/>- endpoint tracking<br/>- stop/route logging]
+    SystemHealthMonitor[SystemHealthMonitor<br/>@Service<br/>Health checking]
+    PerformanceMetricsRegistry[PerformanceMetricsRegistry<br/>Static utility<br/>Performance tracking]
+    RequestTimingInterceptor[RequestTimingInterceptor<br/>@Component<br/>Request timing]
+    MetricsResponseBuilder[MetricsResponseBuilder<br/>Utility for metrics responses]
+    
+    %% Main Application
+    App[PublicTransportationJourneyPlannerApplication<br/>@SpringBootApplication<br/>Main entry point]
+    
+    %% Test/Utility Classes
+    TestBusGraphs[TestBusGraphs<br/>Main method test]
+    RaptorDiagnostics[RaptorDiagnostics<br/>Diagnostic utility]
+    GeoJsonReader[GeoJsonReader<br/>GeoJSON parsing utility]
+    GeoService[GeoService<br/>Place -> coordinates lookup]
+    TripParseExample[TripParseExample<br/>Trip string parser]
+    MyFileLoader[MyFileLoader<br/>Resource file loader]
+    DataFilesRegistry[DataFilesRegistry<br/>File path registry]
+    Time[Time<br/>Time handling utility]
+    
+    %% Controller Layer
+    AdminController[AdminController<br/>@RestController<br/>System admin operations]
+    GraphController[GraphController<br/>@RestController<br/>Unified multimodal API]
+    TrainController[TrainController<br/>@RestController<br/>Train-specific API]
+    MyCitiBusController[MyCitiBusController<br/>@RestController<br/>MyCiti bus API]
+    GABusController[GABusController<br/>@RestController<br/>GA bus API]
+    TaxiController[TaxiController<br/>@RestController<br/>Taxi API]
+    SystemMonitoringController[SystemMonitoringController<br/>@RestController<br/>Health monitoring API]
+    
+    %% Specialized Transport-Specific Classes
+    RouteCoordinateExtractor[RouteCoordinateExtractor<br/>Extracts railway coordinates<br/>from GeoJSON data]
+    TrainJourney[TrainJourney<br/>Train-specific journey result]
+    TrainStop[TrainStop<br/>extends Stop<br/>Train stops with rail data]
+    TrainTrips[TrainTrips<br/>extends Trip<br/>Train trips with schedules]
+    
+    MyCitiBusJourney[MyCitiBusJourney<br/>MyCiti journey result]
+    MyCitiStop[MyCitiStop<br/>extends BusStop<br/>MyCiti stops]
+    MyCitiTrip[MyCitiTrip<br/>extends Trip<br/>MyCiti trips]
+    
+    GABusJourney[GABusJourney<br/>GA journey result]
+    GAStop[GAStop<br/>extends BusStop<br/>Golden Arrow stops]
+    GATrip[GATrip<br/>extends Trip<br/>Golden Arrow trips]
+    ReadInGAStops[ReadInGAStops<br/>GA data loader utility]
+    
+    TaxiStop[TaxiStop<br/>extends Stop<br/>Taxi stops]
+    TaxiTrip[TaxiTrip<br/>extends Trip<br/>Taxi trips]
+    
+    %% Relationships
+    BusStop -.->|extends| Stop
+    TrainStop -.->|extends| Stop
+    TaxiStop -.->|extends| Stop
+    MyCitiStop -.->|extends| BusStop
+    GAStop -.->|extends| BusStop
+    
+    Trip -->|has| Stop : departure/destination
+    TrainTrips -.->|extends| Trip
+    MyCitiTrip -.->|extends| Trip  
+    GATrip -.->|extends| Trip
+    TaxiTrip -.->|extends| Trip
+    Journey -->|contains| Trip : list of trips
+    
+    TrainJourney -.->|specializes| Journey
+    MyCitiBusJourney -.->|specializes| Journey
+    GABusJourney -.->|specializes| Journey
+    
+    Graph -->|manages| Stop : totalStops
+    Graph -->|manages| Trip : totalTrips
+    Graph -->|contains| Raptor : inner class
+    Graph -->|references| TaxiGraph
+    Graph -->|references| TrainGraph
+    Graph -->|references| MyCitiBusGraph
+    Graph -->|references| GABusGraph
+    
+    BusGraph -->|manages| Stop : combinedStops
+    BusGraph -->|manages| Trip : combinedTrips
+    BusGraph -->|contains| RaptorRouter
+    BusGraph -->|contains| ConnectionScanRouter
+    BusGraph -->|references| MyCitiBusGraph
+    BusGraph -->|references| GABusGraph
+    
+    TrainGraph -->|manages| TrainStop
+    TrainGraph -->|manages| TrainTrips
+    TrainGraph -->|contains| TrainRaptor
+    MyCitiBusGraph -->|manages| MyCitiStop
+    MyCitiBusGraph -->|manages| MyCitiTrip
+    MyCitiBusGraph -->|contains| MyCitiRaptor
+    GABusGraph -->|manages| GAStop
+    GABusGraph -->|manages| GATrip
+    GABusGraph -->|contains| GARaptor
+    TaxiGraph -->|manages| TaxiStop
+    TaxiGraph -->|manages| TaxiTrip
+    
+    TrainController -->|uses| TrainGraph
+    TrainController -->|uses| RouteCoordinateExtractor
+    MyCitiBusController -->|uses| MyCitiBusGraph
+    GABusController -->|uses| GABusGraph
+    TaxiController -->|uses| TaxiGraph
+    GraphController -->|uses| Graph
+    
+    AdminController -->|coordinates| TrainController
+    AdminController -->|coordinates| MyCitiBusController
+    AdminController -->|coordinates| TaxiController
+    SystemMonitoringController -->|uses| SystemHealthMonitor
+    
+    GraphConfig -->|creates @Bean| Graph
+    GraphConfig -->|creates @Bean| TaxiGraph
+    GraphConfig -->|creates @Bean| TrainGraph
+    GraphConfig -->|creates @Bean| MyCitiBusGraph
+    GraphConfig -->|creates @Bean| GABusGraph
+    
+    WebConfig -->|configures| RequestTimingInterceptor
+    
+    RequestTimingInterceptor -->|records to| PerformanceMetricsRegistry
+    MetricsResponseBuilder -->|reads from| PerformanceMetricsRegistry
+    
+    SystemHealthMonitor -->|monitors| TrainGraph
+    SystemHealthMonitor -->|monitors| MyCitiBusGraph
+    SystemHealthMonitor -->|monitors| TaxiGraph
+    SystemHealthMonitor -->|uses| PerformanceMetricsRegistry
+    
+    SystemLog -->|tracks| Stop : add_stop()
+    SystemLog -->|tracks endpoints| PerformanceMetricsRegistry
+    
+    MyFileLoader -->|used by| TrainGraph
+    MyFileLoader -->|used by| MyCitiBusGraph
+    MyFileLoader -->|used by| GABusGraph
+    MyFileLoader -->|used by| TaxiGraph
+    DataFilesRegistry -->|used by| MyFileLoader
+    
+    RouteCoordinateExtractor -->|uses| MyFileLoader
+    RouteCoordinateExtractor -->|uses| DataFilesRegistry
+    GeoService -->|provides| GeoJsonReader
+    TripParseExample -->|used by| GABusGraph
+    
+    TestBusGraphs -->|tests| BusGraph
+    RaptorDiagnostics -->|tests| Graph
+    RaptorDiagnostics -->|tests| BusGraph
+    
+    App -->|starts| GraphConfig
+    
+    %% Styling
+    classDef coreClass fill:#e1f5fe
+    classDef graphClass fill:#f3e5f5
+    classDef configClass fill:#e8f5e8
+    classDef monitorClass fill:#fff3e0
+    classDef testClass fill:#fce4ec
+    
+    class Stop,BusStop,Trip,Journey,TrainJourney,MyCitiBusJourney,GABusJourney coreClass
+    class Graph,BusGraph,TaxiGraph,TrainGraph,MyCitiBusGraph,GABusGraph,RaptorRouter,ConnectionScanRouter,Raptor graphClass
+    class GraphConfig,WebConfig,App configClass
+    class SystemLog,SystemHealthMonitor,PerformanceMetricsRegistry,RequestTimingInterceptor,MetricsResponseBuilder monitorClass
+    class TestBusGraphs,RaptorDiagnostics testClass
