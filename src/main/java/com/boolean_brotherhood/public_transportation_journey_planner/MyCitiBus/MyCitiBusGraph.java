@@ -223,9 +223,11 @@ public final class MyCitiBusGraph{
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Error reading CSV file: {0}", e.getMessage());
                 LOGGER.log(Level.FINEST, "Exception details", e);
+                
             }
         } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
+            System.out.println("Error reading CSV file: " + routePath);
         }
     
     }
