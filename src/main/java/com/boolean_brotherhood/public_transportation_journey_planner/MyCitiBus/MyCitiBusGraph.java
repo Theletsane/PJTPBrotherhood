@@ -66,7 +66,7 @@ public final class MyCitiBusGraph{
         
         this.loadMyCitiTrips();
         duration = System.currentTimeMillis() - start;
-        log("Loaded " + totalStops.size() + " trips in " + duration + " ms");
+        //log("Loaded " + totalStops.size() + " trips in " + duration + " ms");
         this.tripsLoadTimeMs = duration;
     }
         
