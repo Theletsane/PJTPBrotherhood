@@ -49,19 +49,17 @@ public class GABusController {
         return MetricsResponseBuilder.build("gaBus", metrics, "/api/GA/");
     }
 
-    /**
-     * Get all stops in alphabetical order
-     */
     @GetMapping("/stops")
     public List<Map<String, Object>> getStops() {
         SystemLog.log_endpoint("/api/GA/stops");
-  
-        List<GAStop> stops = graph.getGAStops();
-        List<Map<String, Object>> response = new ArrayList<>();
-        
+
+        // Make a new modifiable list from the original stops
+        List<GAStop> stops = new ArrayList<>(graph.getGAStops());
+
         // Sort stops alphabetically by name
         stops.sort(Comparator.comparing(GAStop::getName, String.CASE_INSENSITIVE_ORDER));
-        
+
+        List<Map<String, Object>> response = new ArrayList<>();
         for (GAStop stop : stops) {
             response.add(Map.of(
                 "name", stop.getName(),
@@ -71,6 +69,7 @@ public class GABusController {
         }
         return response;
     }
+
 
     /**
      * Get all trips
