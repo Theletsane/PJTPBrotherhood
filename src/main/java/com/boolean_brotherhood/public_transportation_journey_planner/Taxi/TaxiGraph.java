@@ -48,6 +48,7 @@ public final class TaxiGraph {
         String usedBy    = this.getClass().getSimpleName();
         TRIPSFILENAME    = DataFilesRegistry.getFile("TAXI_TRIPS",usedBy);
         TAXISTOPFILENAME = DataFilesRegistry.getFile("TAXI_STOPS",usedBy);
+        String dm= DataFilesRegistry.getFile("DUMMY_DATA",usedBy) ;
         this.loadData();
     }
 

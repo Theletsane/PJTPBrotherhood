@@ -57,6 +57,7 @@ public final class MyCitiBusGraph{
         String usedBy = this.getClass().getSimpleName();
         stopFileName = DataFilesRegistry.getFile("MYCITI_STOPS",usedBy) ;
         MyCitiRoute = DataFilesRegistry.getFile("MYCITI_TRIPS",usedBy) ;
+        String dm= DataFilesRegistry.getFile("DUMMY_DATA",usedBy) ;
         log("Loading MyCiti stops...");
         long start = System.currentTimeMillis();
         loadStopsFromCSV(stopFileName);
@@ -115,6 +116,7 @@ public final class MyCitiBusGraph{
 
 
     public void loadMyCitiTrips() throws IOException{
+        
         long start = System.currentTimeMillis();
         if(!MyFileLoader.resourceExists(MyCitiRoute)){return ;}
         try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(MyCitiRoute)) {

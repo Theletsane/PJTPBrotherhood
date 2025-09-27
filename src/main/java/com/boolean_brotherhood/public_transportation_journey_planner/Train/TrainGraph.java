@@ -73,6 +73,7 @@ public class TrainGraph {
         this.usageTag = this.getClass().getSimpleName();
         Complete_Metrorail_Stations = DataFilesRegistry.getFile("TRAIN_STOPS", usageTag);
         summaryTrips = DataFilesRegistry.getFile("TRAIN_TRIPS", usageTag);
+        
     }
 
         // call these in main/controller after loading
