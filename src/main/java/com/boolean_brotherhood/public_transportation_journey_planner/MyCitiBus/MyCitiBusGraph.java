@@ -57,7 +57,7 @@ public final class MyCitiBusGraph{
         String usedBy = this.getClass().getSimpleName();
         stopFileName = DataFilesRegistry.getFile("MYCITI_STOPS",usedBy) ;
         MyCitiRoute = DataFilesRegistry.getFile("MYCITI_TRIPS",usedBy) ;
-        String dm= DataFilesRegistry.getFile("DUMMY_DATA",usedBy) ;
+        String ddd = DataFilesRegistry.getFile("DUMMY_DATA",usedBy) ;
         log("Loading MyCiti stops...");
         long start = System.currentTimeMillis();
         loadStopsFromCSV(stopFileName);
