@@ -3,6 +3,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -125,8 +126,11 @@ public final class MyCitiBusGraph{
                 Path dir1RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir2.csv");
                 //InputStream inputStream = MyCitiBusGraph.class.getClassLoader().getResourceAsStream("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
-                getTripsInRoute(dir1RoutePath, routeFullName);
-                getTripsInRoute(dir2RoutePath, routeFullName);
+                String dir1Resource = "CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv";
+                String dir2Resource = "CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv";
+
+                getTripsInRoute(dir1Resource, routeFullName);
+                getTripsInRoute(dir2Resource, routeFullName);
 
                 }
             }
@@ -140,12 +144,15 @@ public final class MyCitiBusGraph{
     }
 
 
-    public void getTripsInRoute(Path routePath, String routeFullName) {
+    public void getTripsInRoute(String routePath, String routeFullName) {
         int missingStops = 0;
-        System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
-        if (Files.exists(routePath)) {
-            SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
-            try (BufferedReader br = Files.newBufferedReader(routePath)) {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(routePath)) {
+            if (inputStream == null) {
+                LOGGER.log(Level.WARNING, "Route file does not exist on classpath: {0}", routePath);
+                return;
+            }
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
                     LOGGER.log(Level.WARNING, "Empty route file: {0}", routePath);
@@ -223,8 +230,8 @@ public final class MyCitiBusGraph{
                 LOGGER.log(Level.SEVERE, "Error reading CSV file: {0}", e.getMessage());
                 LOGGER.log(Level.FINEST, "Exception details", e);
             }
-        } else {
-            LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
+         } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Error reading CSV resource: {0}", e);
         }
     
     }
