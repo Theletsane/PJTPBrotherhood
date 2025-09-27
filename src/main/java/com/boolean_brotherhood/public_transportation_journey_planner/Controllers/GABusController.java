@@ -14,13 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GABusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 
 
 @RestController

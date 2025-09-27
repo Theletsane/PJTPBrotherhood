@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;

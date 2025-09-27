@@ -6,6 +6,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATr
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Taxi.TaxiTrip;
@@ -46,12 +47,14 @@ public class Graph {
     private final TrainGraph trainGraph;
     private final MyCitiBusGraph myCitiBusGraph;
     private final GABusGraph gaBusGraph;
+    private final BusGraph busGraph ;
 
     public Graph() throws IOException {
         this.taxiGraph = new TaxiGraph();
         this.trainGraph = new TrainGraph();
         this.myCitiBusGraph = new MyCitiBusGraph();
         this.gaBusGraph = new GABusGraph();
+        this.busGraph = new BusGraph(myCitiBusGraph, gaBusGraph);
     }
 
     public void loadGraphData() throws IOException {
@@ -74,16 +77,19 @@ public class Graph {
         ));
     }
 
+    public BusGraph getBusGraph() {
+        return this.busGraph;
+    }
+
     public void buildCombinedGraph() {
         totalStops.clear();
         totalTrips.clear();
 
-        addStops(taxiGraph.getTaxiStops());
         addStops(trainGraph.getTrainStops());
         addStops(myCitiBusGraph.getMyCitiStops());
         addStops(gaBusGraph.getGAStops());
 
-        addTrips(taxiGraph.getTaxiTrips());
+  
         addTrips(trainGraph.getTrainTrips());
         addTrips(myCitiBusGraph.getMyCitiTrips());
         addTrips(gaBusGraph.getGATrips());
@@ -102,6 +108,9 @@ public class Graph {
             if (stop == null) {
                 continue;
             }
+            if (totalStops.contains(stop)) {
+                continue;
+            }
             totalStops.add(stop);
             SystemLog.add_stop(stop);
         }
@@ -110,6 +119,9 @@ public class Graph {
     private void addTrips(List<? extends Trip> trips) {
         for (Trip trip : trips) {
             if (trip == null) {
+                continue;
+            }
+            if (totalTrips.contains(trip)) {
                 continue;
             }
             totalTrips.add(trip);
@@ -186,6 +198,15 @@ public class Graph {
 
 
     public List<Stop> getStops() {
+        List<Stop> sortedStops = new ArrayList<>(totalStops);
+        for(Stop stop1: totalStops){
+            for(Stop sortedStop: sortedStops){
+                if(!stop1.getName().equals(sortedStop.getName())){
+                    sortedStops.add(stop1);
+                }
+            }
+        }
+        sortedStops.sort(Comparator.comparing(Stop::getName, String.CASE_INSENSITIVE_ORDER));   
         return Collections.unmodifiableList(totalStops);
     }
 
@@ -234,7 +255,7 @@ public class Graph {
     }
 
     public List<Trip> runAllModesRaptor(String from, String to, LocalTime departure, int maxRounds, Trip.DayType dayType) {
-        return runRaptor(EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.TAXI, Mode.WALKING), from, to, departure, maxRounds, dayType);
+        return runRaptor(EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.WALKING), from, to, departure, maxRounds, dayType);
     }
 
     public Stop findStopByName(String name) {
@@ -275,9 +296,6 @@ public class Graph {
         }
         if (trip instanceof GATrip) {
             return modes.contains(Mode.GA);
-        }
-        if (trip instanceof TaxiTrip) {
-            return modes.contains(Mode.TAXI);
         }
         String mode = trip.getMode();
         if (mode != null && mode.equalsIgnoreCase("Walking")) {

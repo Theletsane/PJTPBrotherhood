@@ -22,9 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph.Mode;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayType;
 

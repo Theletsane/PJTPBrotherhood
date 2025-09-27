@@ -18,12 +18,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.RouteCoordinateExtractor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph.TrainRaptor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GAStop;
+import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.RouteCoordinateExtractor;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
 
@@ -33,7 +33,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Train.Train
 public class TrainController {
 
     private final TrainGraph trainGraph;
-    private final TrainRaptor raptor;
+    private final TrainGraph.TrainRaptor raptor;
     private final RouteCoordinateExtractor routeExtractor;
 
     public TrainController(TrainGraph graph) {

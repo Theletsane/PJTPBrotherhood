@@ -23,7 +23,7 @@ import java.util.logging.SimpleFormatter;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 

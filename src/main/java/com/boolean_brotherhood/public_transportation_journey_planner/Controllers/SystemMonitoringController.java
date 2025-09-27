@@ -31,10 +31,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemHealthMonitor;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
-import com.boolean_brotherhood.public_transportation_journey_planner.PerformanceMetricsRegistry;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemHealthMonitor;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.PerformanceMetricsRegistry;
 
 @RestController
 @RequestMapping("/api/monitor")

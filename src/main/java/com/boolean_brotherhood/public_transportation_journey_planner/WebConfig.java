@@ -9,6 +9,8 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import com.boolean_brotherhood.public_transportation_journey_planner.System.RequestTimingInterceptor;
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 

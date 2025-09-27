@@ -20,7 +20,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,14 +28,13 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
-import com.boolean_brotherhood.public_transportation_journey_planner.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.DataFilesRegistry;
-import com.boolean_brotherhood.public_transportation_journey_planner.PerformanceMetricsRegistry;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.PerformanceMetricsRegistry;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 
 @RestController
 @RequestMapping("/api/admin")
-
 public class AdminController {
 
     private static final String DATA_PATH = "CapeTownTransitData/";
@@ -44,7 +42,6 @@ public class AdminController {
     private final TrainController trainController;
     private final TaxiController taxiController;
     private final MyCitiBusController busController;
-
 
     @Autowired
     public AdminController(
@@ -55,48 +52,51 @@ public class AdminController {
         this.trainController = trainController;
         this.taxiController = taxiController;
         this.busController = busController;
-        
     }
 
     @GetMapping("/list")
-   public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
-       SystemLog.log_endpoint("/api/admin/list");
-       try {
-           String targetPath = DATA_PATH + (subPath != null ? subPath : "");
-           Resource resource = new ClassPathResource(targetPath);
+    public ResponseEntity<List<String>> listFiles(@RequestParam(required = false) String subPath) throws IOException {
+        SystemLog.log_endpoint("/api/admin/list");
+        try {
+            String targetPath = DATA_PATH + (subPath != null ? subPath : "");
+            Resource resource = new ClassPathResource(targetPath);
 
-           if (!resource.exists()) {
-               SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
-                       "targetPath", targetPath,
-                       "absolutePath", resource.getFile().getAbsolutePath()
-               ));
-               return ResponseEntity.notFound().build();
-           }
+            if (!resource.exists()) {
+                SystemLog.log_event("ADMIN", "Requested data path not found", "WARN", Map.of(
+                        "targetPath", targetPath,
+                        "absolutePath", resource.getFile().getAbsolutePath()
+                ));
+                return ResponseEntity.notFound().build();
+            }
 
-           List<String> fileNames = new ArrayList<>();
-           File[] files = resource.getFile().listFiles();
-           // ... rest of method
-       } catch (Exception e) {
-           SystemLog.log_event("ADMIN", "File listing failed", "ERROR", Map.of(
-                   "error", e.getMessage(),
-                   "subPath", subPath
-           ));
-           return ResponseEntity.status(500).body(List.of("Error: " + e.getMessage()));
-       }
-       return null;
-   }
+            List<String> fileNames = new ArrayList<>();
+            File[] files = resource.getFile().listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        fileNames.add(file.getName());
+                    }
+                }
+            }
+            
+            return ResponseEntity.ok(fileNames);
+        } catch (Exception e) {
+            SystemLog.log_event("ADMIN", "File listing failed", "ERROR", Map.of(
+                    "error", e.getMessage(),
+                    "subPath", subPath
+            ));
+            return ResponseEntity.status(500).body(List.of("Error: " + e.getMessage()));
+        }
+    }
 
-    /**
-     * Read a specific file and return its contents as text
-     */
     @GetMapping("/file")
     public ResponseEntity<String> readFile(@RequestParam String filePath) throws IOException {
         SystemLog.log_endpoint("/api/admin/file");
         Resource resource = null;
         if (filePath.startsWith("CapeTownTransitData/")) {
-             resource = new ClassPathResource(filePath);
+            resource = new ClassPathResource(filePath);
         } else {
-             resource = new ClassPathResource(DATA_PATH + filePath);
+            resource = new ClassPathResource(DATA_PATH + filePath);
         }
 
         if (!resource.exists()) {
@@ -116,9 +116,6 @@ public class AdminController {
                 .body(content);
     }
 
-    /**
-     * Download a specific file
-     */
     @GetMapping("/download")
     public ResponseEntity<Resource> downloadFile(@RequestParam String filePath) throws IOException {
         SystemLog.log_endpoint("/api/admin/download");
@@ -142,9 +139,6 @@ public class AdminController {
                 .body(resource);
     }
 
-    /**
-     * Collect metrics from all controllers
-     */
     @GetMapping("/systemMetrics")
     public Map<String, Object> getAllMetrics() {
         SystemLog.log_endpoint("/api/admin/systemMetrics");
@@ -154,6 +148,9 @@ public class AdminController {
         metrics.put("bus", busController.getMetrics());
         metrics.put("performanceOverview", PerformanceMetricsRegistry.getOverview());
         metrics.put("trackedEndpoints", PerformanceMetricsRegistry.getEndpointSummaries());
+        metrics.put("operationPerformance", SystemLog.getOperationPerformance());
+        metrics.put("registryInfo", SystemLog.getRegistryInfo());
+        
         SystemLog.log_event("ADMIN", "Collected subsystem metrics", "INFO", Map.of(
                 "sections", metrics.keySet().size()
         ));
@@ -180,7 +177,6 @@ public class AdminController {
         return grouped;
     }
 
-
     @GetMapping("/MostRecentCall")
     public List<Map<String, Object>> getMostRecentCalls() {
         SystemLog.log_endpoint("/api/admin/MostRecentCall");
@@ -191,6 +187,9 @@ public class AdminController {
         return recent;
     }
 
+    /**
+     * Get system logs - returns all logs for debugging
+     */
     @GetMapping("/systemLogs")
     public List<Map<String, Object>> getSystemLogs(@RequestParam(name = "limit", defaultValue = "100") int limit) {
         SystemLog.log_endpoint("/api/admin/systemLogs");
@@ -204,9 +203,79 @@ public class AdminController {
     }
 
     /**
-     * Replace an existing file with a new uploaded file.
-     * If the file does not exist, it will be created.
+     * NEW: Get admin logs - returns only WARNING, ERROR, SEVERE, CRITICAL events
      */
+    @GetMapping("/adminLogs")
+    public Map<String, Object> getAdminLogs(@RequestParam(name = "limit", defaultValue = "50") int limit) {
+        SystemLog.log_endpoint("/api/admin/adminLogs");
+        int safeLimit = Math.max(1, limit);
+        List<Map<String, Object>> adminLogs = SystemLog.GET_ADMIN_EVENTS(safeLimit);
+        Map<String, Integer> summary = SystemLog.getAdminEventSummary();
+        
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("events", adminLogs);
+        response.put("summary", summary);
+        response.put("totalEvents", adminLogs.size());
+        response.put("requestedLimit", limit);
+        
+        SystemLog.log_event("ADMIN", "Retrieved admin event snapshot", "INFO", Map.of(
+                "requestedLimit", limit,
+                "returned", adminLogs.size(),
+                "criticalEvents", summary.getOrDefault("CRITICAL", 0),
+                "errorEvents", summary.getOrDefault("ERROR", 0) + summary.getOrDefault("SEVERE", 0),
+                "warningEvents", summary.getOrDefault("WARN", 0) + summary.getOrDefault("WARNING", 0)
+        ));
+        
+        return response;
+    }
+
+    /**
+     * NEW: Get performance data for important operations
+     */
+    @GetMapping("/operationPerformance")
+    public Map<String, Object> getOperationPerformance() {
+        SystemLog.log_endpoint("/api/admin/operationPerformance");
+        Map<String, Object> performance = SystemLog.getOperationPerformance();
+        Map<String, Object> currentOps = SystemLog.getCurrentOperations();
+        
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("completedOperations", performance);
+        response.put("currentOperations", currentOps);
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        
+        SystemLog.log_event("ADMIN", "Retrieved operation performance data", "INFO", Map.of(
+                "completedOperations", performance.size(),
+                "currentOperations", currentOps.size()
+        ));
+        
+        return response;
+    }
+
+    /**
+     * NEW: Clear performance data (useful for testing)
+     */
+    @PostMapping("/clearPerformanceData")
+    public ResponseEntity<Map<String, Object>> clearPerformanceData() {
+        SystemLog.log_endpoint("/api/admin/clearPerformanceData");
+        try {
+            SystemLog.clearPerformanceData();
+            Map<String, Object> response = Map.of(
+                "message", "Performance data cleared successfully",
+                "timestamp", java.time.LocalDateTime.now().toString()
+            );
+            
+            SystemLog.log_event("ADMIN", "Performance data cleared", "INFO", Map.of());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            SystemLog.log_event("ADMIN", "Failed to clear performance data", "ERROR", Map.of(
+                "error", e.getMessage()
+            ));
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to clear performance data: " + e.getMessage()
+            ));
+        }
+    }
+
     @PostMapping("/replaceFile")
     public ResponseEntity<String> replaceFile(
             @RequestParam String filePath,
@@ -233,10 +302,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * Update a file's contents by appending new content.
-     * If the file does not exist, it will be created.
-     */
     @PostMapping("/updateFile")
     public ResponseEntity<String> updateFile(
             @RequestParam String filePath,

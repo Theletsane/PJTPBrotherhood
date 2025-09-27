@@ -20,7 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.MyFileLoader;
-import com.boolean_brotherhood.public_transportation_journey_planner.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 /**
@@ -183,6 +183,8 @@ public class GABusGraph {
                 String classification = parts[5].trim();
                 double lon = parseDouble(parts[7]);
                 double lat = parseDouble(parts[8]);
+
+                if(classification.toUpperCase().equals("STOP")){continue;}
 
                 if (stopCode.isEmpty() || Double.isNaN(lat) || Double.isNaN(lon)) {
                     continue;
