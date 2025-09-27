@@ -141,8 +141,8 @@ public final class MyCitiBusGraph{
 
     public void getTripsInRoute(Path routePath, String routeFullName) {
         int missingStops = 0;
-
-        //if (Files.exists(routePath)) {
+        System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
+        if (Files.exists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = Files.newBufferedReader(routePath)) {
                 String headerLine = br.readLine();
@@ -222,9 +222,9 @@ public final class MyCitiBusGraph{
                 LOGGER.log(Level.SEVERE, "Error reading CSV file: {0}", e.getMessage());
                 LOGGER.log(Level.FINEST, "Exception details", e);
             }
-        /* } else {
+        } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
-        }*/
+        }
     
     }
 
