@@ -2,6 +2,7 @@ package com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -123,6 +124,7 @@ public final class MyCitiBusGraph{
                 String routeFullName = parts[1];
                 Path dir1RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
+                InputStream inputStream = MyCitiBusGraph.class.getClassLoader().getResourceAsStream("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
                 getTripsInRoute(dir1RoutePath, routeFullName);
                 getTripsInRoute(dir2RoutePath, routeFullName);
