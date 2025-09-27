@@ -142,7 +142,7 @@ public final class MyCitiBusGraph{
 
     public void getTripsInRoute(Path routePath, String routeFullName) {
         int missingStops = 0;
-        System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
+        //System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
         if (Files.exists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = Files.newBufferedReader(routePath)) {
