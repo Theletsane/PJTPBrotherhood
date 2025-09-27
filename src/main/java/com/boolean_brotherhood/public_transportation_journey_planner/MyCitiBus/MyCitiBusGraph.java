@@ -126,8 +126,8 @@ public final class MyCitiBusGraph{
                 Path dir1RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
-                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
-                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
+                getTripsInRoute("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
+                getTripsInRoute("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
 
                 }
             }
@@ -230,7 +230,6 @@ public final class MyCitiBusGraph{
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
             //System.out.println("====Error reading CSV file: " + routePath);
         }
-    
     }
 
     
