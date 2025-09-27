@@ -127,7 +127,7 @@ public final class MyCitiBusGraph{
                 Path dir2RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
                 getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
-                getTripsInRoute("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
+                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
 
                 }
             }
