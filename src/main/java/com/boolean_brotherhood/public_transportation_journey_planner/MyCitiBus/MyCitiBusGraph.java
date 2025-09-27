@@ -121,7 +121,7 @@ public final class MyCitiBusGraph{
                 String[] parts = line.split(",", -1);
                 String routeCode = parts[0];
                 String routeFullName = parts[1];
-                Path dir1RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
+                Path dir1RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
                 getTripsInRoute(dir1RoutePath, routeFullName);
