@@ -145,7 +145,7 @@ public final class MyCitiBusGraph{
         int missingStops = 0;
 
         if (MyFileLoader.resourceExists(routePath)) {
-            System.out.println("====Loading route: " + routeFullName + " from " + routePath);
+            //System.out.println("====Loading route: " + routeFullName + " from " + routePath);
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(routePath)) {
                 String headerLine = br.readLine();
