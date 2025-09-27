@@ -61,12 +61,10 @@ public final class MyCitiBusGraph{
         long duration = System.currentTimeMillis() - start;
         this.stopsLoadTimeMs = duration;
         log("Loaded " + totalStops.size() + " stops in " + duration + " ms");
-        log("Loading MyCiti trips...");
         start = System.currentTimeMillis();
         
         this.loadMyCitiTrips();
         duration = System.currentTimeMillis() - start;
-        //log("Loaded " + totalStops.size() + " trips in " + duration + " ms");
         this.tripsLoadTimeMs = duration;
     }
         
@@ -123,11 +121,11 @@ public final class MyCitiBusGraph{
                 String[] parts = line.split(",", -1);
                 String routeCode = parts[0];
                 String routeFullName = parts[1];
-                Path dir1RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
-                Path dir2RoutePath = Paths.get("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
+                Path dir1RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
+                Path dir2RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
-                getTripsInRoute("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
-                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
+                getTripsInRoute(dir1RoutePath, routeFullName);
+                getTripsInRoute(dir2RoutePath, routeFullName);
 
                 }
             }
@@ -141,13 +139,12 @@ public final class MyCitiBusGraph{
     }
 
 
-    public void getTripsInRoute(String routePath, String routeFullName) {
+    public void getTripsInRoute(Path routePath, String routeFullName) {
         int missingStops = 0;
 
-        if (MyFileLoader.resourceExists(routePath)) {
-            //System.out.println("====Loading route: " + routeFullName + " from " + routePath);
+        if (Files.exists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
-            try (BufferedReader br = MyFileLoader.getBufferedReaderFromResource(routePath)) {
+            try (BufferedReader br = Files.newBufferedReader(routePath)) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
                     LOGGER.log(Level.WARNING, "Empty route file: {0}", routePath);
@@ -224,12 +221,11 @@ public final class MyCitiBusGraph{
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Error reading CSV file: {0}", e.getMessage());
                 LOGGER.log(Level.FINEST, "Exception details", e);
-                
             }
         } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
-            //System.out.println("====Error reading CSV file: " + routePath);
         }
+    
     }
 
     
