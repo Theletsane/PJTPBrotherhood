@@ -121,7 +121,7 @@ public final class MyCitiBusGraph{
                 String[] parts = line.split(",", -1);
                 String routeCode = parts[0];
                 String routeFullName = parts[1];
-                Path dir1RoutePath = Paths.get("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir1.csv");
+                Path dir1RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
                 Path dir2RoutePath = Paths.get("Public Transportation Journey Planner/src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
 
                 getTripsInRoute(dir1RoutePath, routeFullName);
@@ -142,7 +142,7 @@ public final class MyCitiBusGraph{
     public void getTripsInRoute(Path routePath, String routeFullName) {
         int missingStops = 0;
 
-        if (Files.exists(routePath)) {
+        //if (Files.exists(routePath)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
             try (BufferedReader br = Files.newBufferedReader(routePath)) {
                 String headerLine = br.readLine();
@@ -222,9 +222,9 @@ public final class MyCitiBusGraph{
                 LOGGER.log(Level.SEVERE, "Error reading CSV file: {0}", e.getMessage());
                 LOGGER.log(Level.FINEST, "Exception details", e);
             }
-        } else {
+        /* } else {
             LOGGER.log(Level.WARNING, "Route file does not exist: {0}", routePath);
-        }
+        }*/
     
     }
 
