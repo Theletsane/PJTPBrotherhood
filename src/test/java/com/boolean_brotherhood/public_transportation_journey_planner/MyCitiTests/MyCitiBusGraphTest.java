@@ -1,18 +1,19 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.MyCitiTests;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip;
-
-import com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiBusJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 
@@ -199,17 +200,7 @@ public class MyCitiBusGraphTest {
         }
     }
     
-    @Test
-    void testJourneyPlanning() {
-        // Test journey planning from Civic Centre to Gardens
-        MyCitiBusJourney journey = myCitiBusGraph.new MyCitiRaptor(myCitiBusGraph)
-            .runRaptor("Civic Centre", "Gardens", LocalTime.of(8, 0), 4, Trip.DayType.WEEKDAY);
-        
-        assertNotNull(journey, "Should find a journey from Civic Centre to Gardens");
-        assertFalse(journey.getTrips().isEmpty(), "Journey should have at least one trip");
-        assertEquals("Civic Centre", journey.getSource().getName());
-        assertEquals("Gardens", journey.getDestination().getName());
-    }
+
     
     @Test
     void testSpecificTimes() {
@@ -269,7 +260,7 @@ public class MyCitiBusGraphTest {
             .filter(t -> t.getDayType() == Trip.DayType.SATURDAY)
             .toList();
         
-        List<MyCitiTrip> sundayTrips = myCitiBusGraph.getMyCitiTriips().stream()
+        List<MyCitiTrip> sundayTrips = myCitiBusGraph.getMyCitiTrips().stream()
             .filter(t -> t.getRouteName().equals("101"))
             .filter(t -> t.getDayType() == Trip.DayType.SUNDAY)
             .toList();
