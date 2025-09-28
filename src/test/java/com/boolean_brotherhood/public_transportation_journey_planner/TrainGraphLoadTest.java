@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 
-class TrainGraphTest {
+class TrainGraphTests {
 
     private TrainGraph trainGraph;
 

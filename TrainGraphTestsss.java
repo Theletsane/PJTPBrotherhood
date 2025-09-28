@@ -1,38 +1,20 @@
 package com.boolean_brotherhood.public_transportation_journey_planner;
+import java.time.LocalTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainGraph;
+import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainStop;
 import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
-import com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainJourney;
 
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.*;
-import java.time.LocalTime;
-import java.util.List;
-
-public class TrainGraphTest {
+public class TrainGraphTestsss {
     
     private TrainGraph trainGraph;
     
