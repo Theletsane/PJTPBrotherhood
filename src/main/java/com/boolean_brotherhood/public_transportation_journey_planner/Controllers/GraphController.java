@@ -254,6 +254,11 @@ public class GraphController {
                 toStop.getLatitude(), toStop.getLongitude()
             );
             tripMap.put("walkingDistance", distance);
+        } else {
+            // Add empty coordinate data if stops are null
+            tripMap.put("fromStopCoordinates", null);
+            tripMap.put("toStopCoordinates", null);
+            tripMap.put("walkingDistance", 0.0);
         }
     }
 
@@ -271,7 +276,9 @@ public class GraphController {
 
     /** Helper: Check if trip is a walking trip */
     private boolean isWalkingTrip(Trip trip) {
-        return "WALKING".equals(getEffectiveMode(trip));
+        String mode = getEffectiveMode(trip);
+        return "WALKING".equals(mode) || "Walking".equals(mode) || 
+               (trip.getMode() != null && trip.getMode().toUpperCase().contains("WALKING"));
     }
 
     /** Helper: Convert Stop to Map */
