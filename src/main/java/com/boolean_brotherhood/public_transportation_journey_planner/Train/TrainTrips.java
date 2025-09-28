@@ -1,9 +1,12 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
+import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
+
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Train-specific Trip.
@@ -54,5 +57,20 @@ public class TrainTrips extends Trip {
                 getDepartureTime(),
                 routeNumber,
                 tripID);
+    }
+
+    // This is what your GATrip.equals() method should look like
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        
+        // Safe cast only after type checking
+        TrainTrips other = (TrainTrips) obj;
+        
+        // Your comparison logic here
+        return Objects.equals(this.getTripID(), other.getTripID()) &&
+            Objects.equals(this.getDepartureStop(), other.getDepartureStop()) &&
+            Objects.equals(this.getDestinationStop(), other.getDestinationStop());
     }
 }

@@ -27,7 +27,7 @@ import concurrent.futures
 import threading
 
 class TransportSystemMonitor:
-    def __init__(self, base_url: str = "http://localhost"):
+    def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
         self.session.timeout = 15

@@ -26,15 +26,14 @@ public class GraphConfig {
 
     @Bean
     public MyCitiBusGraph myCitiBusGraph(Graph graph) {
-        MyCitiBusGraph g = graph.getMyCitiBusGraph();
-        if (g == null) {
+        MyCitiBusGraph myCitiGraph = graph.getMyCitiBusGraph(); // Fixed: use 'myCitiGraph' instead of 'g'
+        if (myCitiGraph == null) {
             System.err.println(" MyCitiBusGraph is NULL when GraphConfig runs!");
         } else {
-            System.out.println(" MyCitiBusGraph loaded with " + g.getMyCitiStops().size() + " stops");
+            System.out.println(" MyCitiBusGraph loaded with " + myCitiGraph.getMyCitiStops().size() + " stops");
         }
-        return g;
+        return myCitiGraph;
     }
-
 
     @Bean
     public TaxiGraph taxiGraph(Graph graph) {
@@ -45,7 +44,6 @@ public class GraphConfig {
     public GABusGraph gaBusGraph(Graph graph) {
         return graph.getGABusGraph();
     }
-
 
     @Bean
     public BusGraph busGraph(Graph graph) {
