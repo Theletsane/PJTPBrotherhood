@@ -145,6 +145,29 @@ public class GraphController {
         response.put("durationMinutes", journey.getTotalDurationMinutes());
         response.put("transfers", journey.getNumberOfTransfers());
 
+        // Add start and end stop coordinates
+        if (source != null) {
+            Map<String, Object> startStopCoords = new HashMap<>();
+            startStopCoords.put("name", source.getName());
+            startStopCoords.put("latitude", source.getLatitude());
+            startStopCoords.put("longitude", source.getLongitude());
+            if (source.getAddress() != null && !source.getAddress().isEmpty()) {
+                startStopCoords.put("address", source.getAddress());
+            }
+            response.put("startStopCoordinates", startStopCoords);
+        }
+        
+        if (destination != null) {
+            Map<String, Object> endStopCoords = new HashMap<>();
+            endStopCoords.put("name", destination.getName());
+            endStopCoords.put("latitude", destination.getLatitude());
+            endStopCoords.put("longitude", destination.getLongitude());
+            if (destination.getAddress() != null && !destination.getAddress().isEmpty()) {
+                endStopCoords.put("address", destination.getAddress());
+            }
+            response.put("endStopCoordinates", endStopCoords);
+        }
+
         List<Map<String, Object>> miniTrips = new ArrayList<>();
         for (Trip t : path) {
             Map<String, Object> tripMap = new HashMap<>();
@@ -160,13 +183,15 @@ public class GraphController {
                 tripMap.put("route", route);
             }
             
-            // Add coordinates based on trip type
+            // Add start and end stop coordinates for each trip segment
+            addTripStopCoordinates(tripMap, t);
+            
+            // Add additional coordinates based on trip type
             if (isTrainTrip(t)) {
                 addTrainCoordinates(tripMap, t);
             } else if (isWalkingTrip(t)) {
-                addWalkingStopCoordinates(tripMap, t);
+                addWalkingDistanceInfo(tripMap, t);
             }
-            // For other transport modes (bus, taxi), no additional coordinate data is added
             
             miniTrips.add(tripMap);
         }
@@ -188,8 +213,73 @@ public class GraphController {
             @RequestParam(required = false) String day) {
         
         // This is essentially the same as the regular journey endpoint now
-        // since we've enhanced it to include coordinates for train trips
+        // since we've enhanced it to include coordinates for all trips
         return planJourney(from, to, time, modes, day);
+    }
+
+    /** Helper: Add start and end stop coordinates for individual trip segments */
+    private void addTripStopCoordinates(Map<String, Object> tripMap, Trip trip) {
+        Stop fromStop = trip.getDepartureStop();
+        Stop toStop = trip.getDestinationStop();
+        
+        // Add departure stop coordinates
+        if (fromStop != null) {
+            Map<String, Object> fromCoords = new HashMap<>();
+            fromCoords.put("name", fromStop.getName());
+            fromCoords.put("latitude", fromStop.getLatitude());
+            fromCoords.put("longitude", fromStop.getLongitude());
+            if (fromStop.getAddress() != null && !fromStop.getAddress().isEmpty()) {
+                fromCoords.put("address", fromStop.getAddress());
+            }
+            tripMap.put("fromStopCoordinates", fromCoords);
+        } else {
+            tripMap.put("fromStopCoordinates", null);
+        }
+        
+        // Add destination stop coordinates
+        if (toStop != null) {
+            Map<String, Object> toCoords = new HashMap<>();
+            toCoords.put("name", toStop.getName());
+            toCoords.put("latitude", toStop.getLatitude());
+            toCoords.put("longitude", toStop.getLongitude());
+            if (toStop.getAddress() != null && !toStop.getAddress().isEmpty()) {
+                toCoords.put("address", toStop.getAddress());
+            }
+            tripMap.put("toStopCoordinates", toCoords);
+        } else {
+            tripMap.put("toStopCoordinates", null);
+        }
+        
+        // Calculate straight-line distance between stops
+        if (fromStop != null && toStop != null) {
+            double distance = calculateDistance(
+                fromStop.getLatitude(), fromStop.getLongitude(),
+                toStop.getLatitude(), toStop.getLongitude()
+            );
+            tripMap.put("straightLineDistance", Math.round(distance * 100.0) / 100.0);
+        } else {
+            tripMap.put("straightLineDistance", 0.0);
+        }
+    }
+
+    /** Helper: Add walking-specific distance information */
+    private void addWalkingDistanceInfo(Map<String, Object> tripMap, Trip trip) {
+        Stop fromStop = trip.getDepartureStop();
+        Stop toStop = trip.getDestinationStop();
+        
+        if (fromStop != null && toStop != null) {
+            double distance = calculateDistance(
+                fromStop.getLatitude(), fromStop.getLongitude(),
+                toStop.getLatitude(), toStop.getLongitude()
+            );
+            
+            // Estimate walking time based on average walking speed (5 km/h)
+            double estimatedWalkingMinutes = (distance / 5.0) * 60.0;
+            tripMap.put("estimatedWalkingTime", Math.round(estimatedWalkingMinutes * 100.0) / 100.0);
+            
+            // Add walking path type indicator
+            tripMap.put("walkingType", "direct");
+        }
     }
 
     /** Helper: Check if trip is a train trip */
@@ -225,40 +315,6 @@ public class GraphController {
             tripMap.put("segmentDistance", 0);
             tripMap.put("routeName", "Unknown");
             tripMap.put("coordinateError", "Could not load coordinates");
-        }
-    }
-
-    /** Helper: Add walking stop coordinates to trip map */
-    private void addWalkingStopCoordinates(Map<String, Object> tripMap, Trip trip) {
-        Stop fromStop = trip.getDepartureStop();
-        Stop toStop = trip.getDestinationStop();
-        
-        if (fromStop != null && toStop != null) {
-            // Add from and to stop coordinates as separate fields
-            Map<String, Object> fromStopCoords = new HashMap<>();
-            fromStopCoords.put("name", fromStop.getName());
-            fromStopCoords.put("latitude", fromStop.getLatitude());
-            fromStopCoords.put("longitude", fromStop.getLongitude());
-            
-            Map<String, Object> toStopCoords = new HashMap<>();
-            toStopCoords.put("name", toStop.getName());
-            toStopCoords.put("latitude", toStop.getLatitude());
-            toStopCoords.put("longitude", toStop.getLongitude());
-            
-            tripMap.put("fromStopCoordinates", fromStopCoords);
-            tripMap.put("toStopCoordinates", toStopCoords);
-            
-            // Calculate straight-line distance for reference
-            double distance = calculateDistance(
-                fromStop.getLatitude(), fromStop.getLongitude(),
-                toStop.getLatitude(), toStop.getLongitude()
-            );
-            tripMap.put("walkingDistance", distance);
-        } else {
-            // Add empty coordinate data if stops are null
-            tripMap.put("fromStopCoordinates", null);
-            tripMap.put("toStopCoordinates", null);
-            tripMap.put("walkingDistance", 0.0);
         }
     }
 
@@ -390,13 +446,15 @@ public class GraphController {
                 tripMap.put("route", route);
             }
             
-            // Add coordinates based on trip type
+            // Add trip stop coordinates for individual trip segments
+            addTripStopCoordinates(tripMap, t);
+            
+            // Add additional coordinates based on trip type
             if (isTrainTrip(t)) {
                 addTrainCoordinates(tripMap, t);
             } else if (isWalkingTrip(t)) {
-                addWalkingStopCoordinates(tripMap, t);
+                addWalkingDistanceInfo(tripMap, t);
             }
-            // For other transport modes (bus, taxi), no additional coordinate data is added
             
             trips.add(tripMap);
         }
