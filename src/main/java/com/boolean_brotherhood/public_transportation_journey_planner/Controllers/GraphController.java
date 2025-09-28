@@ -24,6 +24,7 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
 import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayType;
+import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.RouteCoordinateExtractor;
 
 @RestController
 @RequestMapping("/api/graph")
@@ -31,9 +32,18 @@ import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayTyp
 public class GraphController {
 
     private final Graph graph;
+    private final RouteCoordinateExtractor routeExtractor;
 
     public GraphController(Graph graph) throws IOException {
         this.graph = graph;
+        this.routeExtractor = new RouteCoordinateExtractor();
+        
+        // Initialize route extractor
+        try {
+            routeExtractor.loadRailwayGeoJson();
+        } catch (IOException e) {
+            System.err.println("Warning: Could not load railway GeoJSON data: " + e.getMessage());
+        }
     }
 
     /** Get all stops across all modes */
@@ -150,6 +160,17 @@ public class GraphController {
                 tripMap.put("route", route);
             }
             
+            // Add coordinates for train trips
+            if (isTrainTrip(t)) {
+                addTrainCoordinates(tripMap, t);
+            } else {
+                // For non-train trips, add empty coordinates
+                tripMap.put("coordinates", "[]");
+                tripMap.put("coordinateCount", 0);
+                tripMap.put("segmentDistance", 0);
+                tripMap.put("routeName", "Unknown");
+            }
+            
             miniTrips.add(tripMap);
         }
         response.put("trips", miniTrips);
@@ -158,6 +179,56 @@ public class GraphController {
         response.put("summary", buildJourneySummary(journey));
         
         return response;
+    }
+
+    /** Plan a journey with coordinates (enhanced endpoint) */
+    @GetMapping("/journey/with-coordinates")
+    public Map<String, Object> planJourneyWithCoordinates(
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam String time,
+            @RequestParam(required = false) List<String> modes,
+            @RequestParam(required = false) String day) {
+        
+        // This is essentially the same as the regular journey endpoint now
+        // since we've enhanced it to include coordinates for train trips
+        return planJourney(from, to, time, modes, day);
+    }
+
+    /** Helper: Check if trip is a train trip */
+    private boolean isTrainTrip(Trip trip) {
+        return trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips;
+    }
+
+    /** Helper: Add train coordinates to trip map */
+    private void addTrainCoordinates(Map<String, Object> tripMap, Trip trip) {
+        try {
+            if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips) {
+                com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips trainTrip = 
+                    (com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips) trip;
+                
+                RouteCoordinateExtractor.RouteSegment segment = routeExtractor.getRouteCoordinates(trainTrip);
+                
+                if (segment != null && !segment.isEmpty()) {
+                    tripMap.put("coordinates", routeExtractor.getRouteCoordinatesAsJson(segment));
+                    tripMap.put("coordinateCount", segment.getCoordinates().size());
+                    tripMap.put("segmentDistance", segment.getTotalDistance());
+                    tripMap.put("routeName", segment.getRouteName());
+                } else {
+                    tripMap.put("coordinates", "[]");
+                    tripMap.put("coordinateCount", 0);
+                    tripMap.put("segmentDistance", 0);
+                    tripMap.put("routeName", "Unknown");
+                }
+            }
+        } catch (IOException e) {
+            // Fallback to empty coordinates on error
+            tripMap.put("coordinates", "[]");
+            tripMap.put("coordinateCount", 0);
+            tripMap.put("segmentDistance", 0);
+            tripMap.put("routeName", "Unknown");
+            tripMap.put("coordinateError", "Could not load coordinates");
+        }
     }
 
     /** Helper: Convert Stop to Map */
@@ -267,6 +338,16 @@ public class GraphController {
             String route = getRouteNumber(t);
             if (route != null) {
                 tripMap.put("route", route);
+            }
+            
+            // Add coordinates for train trips
+            if (isTrainTrip(t)) {
+                addTrainCoordinates(tripMap, t);
+            } else {
+                tripMap.put("coordinates", "[]");
+                tripMap.put("coordinateCount", 0);
+                tripMap.put("segmentDistance", 0);
+                tripMap.put("routeName", "Unknown");
             }
             
             trips.add(tripMap);
