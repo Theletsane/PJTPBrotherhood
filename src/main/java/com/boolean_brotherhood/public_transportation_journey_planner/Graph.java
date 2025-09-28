@@ -38,7 +38,8 @@ public class Graph {
     private static final double WALKING_SPEED_KM_PER_MIN = 0.0833;     // ~5 km/h
     private static final int MINUTES_PER_DAY = 24 * 60;
 
-    public enum Mode { TRAIN, MYCITI, GA, TAXI, WALKING }
+    // FIXED: Removed TAXI from multimodal planning
+    public enum Mode { TRAIN, MYCITI, GA, WALKING }
 
     private final List<Stop> totalStops = new ArrayList<>();
     private final List<Trip> totalTrips = new ArrayList<>();
@@ -47,7 +48,7 @@ public class Graph {
     private final TrainGraph trainGraph;
     private final MyCitiBusGraph myCitiBusGraph;
     private final GABusGraph gaBusGraph;
-    private final BusGraph busGraph ;
+    private final BusGraph busGraph;
 
     public Graph() throws IOException {
         this.taxiGraph = new TaxiGraph();
@@ -82,12 +83,9 @@ public class Graph {
             if (trip == null) {
                 continue;
             }
-            // Remove the problematic contains check that was causing ClassCastException
-            // Instead, just add the trip (duplicates are unlikely with proper data loading)
             totalTrips.add(trip);
         }
     }
-
 
     public BusGraph getBusGraph() {
         return this.busGraph;
@@ -97,11 +95,11 @@ public class Graph {
         totalStops.clear();
         totalTrips.clear();
 
+        // FIXED: Only add stops and trips for multimodal modes (no taxi)
         addStops(trainGraph.getTrainStops());
         addStops(myCitiBusGraph.getMyCitiStops());
         addStops(gaBusGraph.getGAStops());
 
-  
         addTrips(trainGraph.getTrainTrips());
         addTrips(myCitiBusGraph.getMyCitiTrips());
         addTrips(gaBusGraph.getGATrips());
@@ -128,7 +126,6 @@ public class Graph {
         }
     }
 
-
     private void ensureStopTripLinks() {
         for (Trip trip : new ArrayList<>(totalTrips)) {
             Stop departure = trip.getDepartureStop();
@@ -144,7 +141,6 @@ public class Graph {
         int maxWalkingConnections = 10; // limit per stop
 
         for (Stop from : totalStops) {
-            // find up to 10 nearby stops within threshold
             List<Stop> nearbyStops = findNearbyStops(from, WALKING_DISTANCE_THRESHOLD_KM, maxWalkingConnections);
 
             for (Stop to : nearbyStops) {
@@ -179,60 +175,40 @@ public class Graph {
         ));
     }
     
-
     private List<Stop> findNearbyStops(Stop from, double maxDistanceKm, int maxResults) {
-            List<Stop> nearby = new ArrayList<>();
-            for (Stop candidate : totalStops) {
-                if (candidate.equals(from)) continue;
-                double distance = from.distanceTo(candidate);
-                if (distance <= maxDistanceKm) {
-                    nearby.add(candidate);
-                }
+        List<Stop> nearby = new ArrayList<>();
+        for (Stop candidate : totalStops) {
+            if (candidate.equals(from)) continue;
+            double distance = from.distanceTo(candidate);
+            if (distance <= maxDistanceKm) {
+                nearby.add(candidate);
             }
-            // Sort by distance and limit
-            nearby.sort((a, b) -> Double.compare(from.distanceTo(a), from.distanceTo(b)));
-            if (nearby.size() > maxResults) {
-                return nearby.subList(0, maxResults);
-            }
-            return nearby;
         }
+        nearby.sort((a, b) -> Double.compare(from.distanceTo(a), from.distanceTo(b)));
+        if (nearby.size() > maxResults) {
+            return nearby.subList(0, maxResults);
+        }
+        return nearby;
+    }
 
     public List<Stop> getStops() {
-        // The current implementation has a logic error - it's adding duplicates
-        // Here's the corrected version:
         List<Stop> sortedStops = new ArrayList<>(totalStops);
         sortedStops.sort(Comparator.comparing(Stop::getName, String.CASE_INSENSITIVE_ORDER));   
         return Collections.unmodifiableList(sortedStops);
     }
 
-    // Alternative implementation if you want to remove duplicates by name:
-    /*
-    public List<Stop> getStops() {
-        Set<String> seenNames = new HashSet<>();
-        List<Stop> uniqueStops = new ArrayList<>();
-        
-        for (Stop stop : totalStops) {
-            if (stop != null && stop.getName() != null && seenNames.add(stop.getName().toUpperCase())) {
-                uniqueStops.add(stop);
-            }
-        }
-        
-        uniqueStops.sort(Comparator.comparing(Stop::getName, String.CASE_INSENSITIVE_ORDER));
-        return Collections.unmodifiableList(uniqueStops);
-    }
-*/
     public List<Trip> getTrips() {
         return Collections.unmodifiableList(totalTrips);
     }
 
     public Raptor buildRaptorForModes(EnumSet<Mode> modes) {
-        // Default: if no modes provided, allow all
+        // FIXED: Default to multimodal modes only (no taxi)
         EnumSet<Mode> requested = (modes == null || modes.isEmpty())
-                ? EnumSet.allOf(Mode.class)
+                ? EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.WALKING)
                 : EnumSet.copyOf(modes);
 
-        // Only add walking if multimodal AND user hasn't explicitly excluded it
-        if (requested.size() > 1 && (modes == null || !modes.contains(Mode.WALKING))) {
+        // Always add walking for multimodal
+        if (requested.size() > 1 || requested.contains(Mode.WALKING)) {
             requested.add(Mode.WALKING);
         }
 

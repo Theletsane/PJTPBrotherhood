@@ -1,4 +1,3 @@
-
 package com.boolean_brotherhood.public_transportation_journey_planner.Controllers;
 
 import java.io.IOException;
@@ -11,8 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,9 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph.Mode;
-import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
-import com.boolean_brotherhood.public_transportation_journey_planner.System.SystemLog;
+import com.boolean_brotherhood.public_transportation_journey_planner.Journey;
 import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
+import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayType;
 
@@ -39,8 +36,6 @@ public class GraphController {
         this.graph = graph;
     }
 
-
-    // Removed getGraphStatus endpoint due to missing healthMonitor dependency.
     /** Get all stops across all modes */
     @GetMapping("/stops")
     public List<Map<String, Object>> getAllStops() {
@@ -118,24 +113,50 @@ public class GraphController {
         if (path.isEmpty())
             return Map.of("error", "No journey found");
 
+        // Create Journey object to get proper transfer calculation
+        Stop source = graph.findStopByName(from);
+        Stop destination = graph.findStopByName(to);
+        
+        // Calculate arrival time
+        LocalTime arrivalTime = departureTime;
+        for (Trip trip : path) {
+            if (arrivalTime != null) {
+                arrivalTime = arrivalTime.plusMinutes(trip.getDuration());
+            }
+        }
+        
+        Journey journey = new Journey(source, destination, departureTime, arrivalTime, path);
+
         Map<String, Object> response = new HashMap<>();
         response.put("from", from);
         response.put("to", to);
-        response.put("departure", path.get(0).getDepartureStop().getName());
-        response.put("arrival", path.get(path.size() - 1).getDestinationStop().getName());
-        response.put("durationMinutes", path.stream().mapToInt(Trip::getDuration).sum());
-        //response.put("transfers", path.size() - 1);
+        response.put("departure", journey.getDepartureTime().toString());
+        response.put("arrival", journey.getArrivalTime().toString());
+        response.put("durationMinutes", journey.getTotalDurationMinutes());
+        response.put("transfers", journey.getNumberOfTransfers());
 
         List<Map<String, Object>> miniTrips = new ArrayList<>();
         for (Trip t : path) {
             Map<String, Object> tripMap = new HashMap<>();
             tripMap.put("from", t.getDepartureStop().getName());
             tripMap.put("to", t.getDestinationStop().getName());
+            tripMap.put("departure", t.getDepartureTime() != null ? t.getDepartureTime().toString() : null);
             tripMap.put("durationMinutes", t.getDuration());
-            tripMap.put("mode", t.getMode());
+            tripMap.put("mode", getEffectiveMode(t));
+            
+            // Add route information if available
+            String route = getRouteNumber(t);
+            if (route != null) {
+                tripMap.put("route", route);
+            }
+            
             miniTrips.add(tripMap);
         }
-        response.put("miniTrips", miniTrips);
+        response.put("trips", miniTrips);
+        
+        // Add journey summary similar to TrainJourney toString
+        response.put("summary", buildJourneySummary(journey));
+        
         return response;
     }
 
@@ -151,7 +172,7 @@ public class GraphController {
     /** Helper: Parse modes list from request */
     private EnumSet<Mode> parseModes(List<String> modes) {
         if (modes == null || modes.isEmpty())
-            return EnumSet.allOf(Mode.class);
+            return EnumSet.of(Mode.TRAIN, Mode.MYCITI, Mode.GA, Mode.WALKING); // Default multimodal
         EnumSet<Mode> set = EnumSet.noneOf(Mode.class);
         for (String m : modes) {
             try {
@@ -175,6 +196,59 @@ public class GraphController {
         }
     }
 
+    /** Helper: Get effective mode of a trip */
+    private String getEffectiveMode(Trip trip) {
+        if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips) {
+            return "TRAIN";
+        } else if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip) {
+            return "MYCITI";
+        } else if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip) {
+            return "GA";
+        } else {
+            return trip.getMode();
+        }
+    }
+
+    /** Helper: Get route number from a trip if available */
+    private String getRouteNumber(Trip trip) {
+        if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips) {
+            return ((com.boolean_brotherhood.public_transportation_journey_planner.Train.TrainTrips) trip).getRouteNumber();
+        } else if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip) {
+            return ((com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus.MyCitiTrip) trip).getRouteName();
+        } else if (trip instanceof com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip) {
+            return ((com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip) trip).getRouteName();
+        }
+        return null;
+    }
+
+    /** Helper: Build journey summary similar to TrainJourney */
+    private String buildJourneySummary(Journey journey) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Journey from ").append(journey.getSource().getName())
+          .append(" to ").append(journey.getDestination().getName()).append("\n");
+        sb.append("Departure: ").append(journey.getDepartureTime())
+          .append(" | Arrival: ").append(journey.getArrivalTime())
+          .append(" | Duration: ").append(journey.getTotalDurationMinutes()).append(" minutes\n");
+        sb.append("Transfers: ").append(journey.getNumberOfTransfers()).append("\n");
+        sb.append("---- Trips ----\n");
+
+        List<Trip> trips = journey.getTrips();
+        for (int i = 0; i < trips.size(); i++) {
+            Trip trip = trips.get(i);
+            sb.append(i + 1).append(". [").append(getEffectiveMode(trip));
+            String route = getRouteNumber(trip);
+            if (route != null) {
+                sb.append(" - ").append(route);
+            }
+            sb.append("] ");
+            sb.append(trip.getDepartureStop().getName())
+              .append(" -> ").append(trip.getDestinationStop().getName())
+              .append(" | Dep: ").append(trip.getDepartureTime())
+              .append(" | Dur: ").append(trip.getDuration()).append(" min\n");
+        }
+        return sb.toString();
+    }
+
     /** Get all trips departing from a stop */
     @GetMapping("/stops/{name}/trips")
     public List<Map<String, Object>> getTripsFromStop(@PathVariable String name) {
@@ -186,8 +260,15 @@ public class GraphController {
             Map<String, Object> tripMap = new HashMap<>();
             tripMap.put("from", t.getDepartureStop().getName());
             tripMap.put("to", t.getDestinationStop().getName());
+            tripMap.put("departure", t.getDepartureTime() != null ? t.getDepartureTime().toString() : null);
             tripMap.put("durationMinutes", t.getDuration());
-            tripMap.put("mode", t.getMode());
+            tripMap.put("mode", getEffectiveMode(t));
+            
+            String route = getRouteNumber(t);
+            if (route != null) {
+                tripMap.put("route", route);
+            }
+            
             trips.add(tripMap);
         }
         return trips;
