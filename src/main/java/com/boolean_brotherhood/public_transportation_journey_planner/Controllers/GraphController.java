@@ -19,12 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph;
 import com.boolean_brotherhood.public_transportation_journey_planner.Graph.Mode;
+import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.RouteCoordinateExtractor;
 import com.boolean_brotherhood.public_transportation_journey_planner.Journey;
 import com.boolean_brotherhood.public_transportation_journey_planner.Stop;
 import com.boolean_brotherhood.public_transportation_journey_planner.System.MetricsResponseBuilder;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 import com.boolean_brotherhood.public_transportation_journey_planner.Trip.DayType;
-import com.boolean_brotherhood.public_transportation_journey_planner.Helpers.RouteCoordinateExtractor;
 
 @RestController
 @RequestMapping("/api/graph")
@@ -151,9 +151,6 @@ public class GraphController {
             startStopCoords.put("name", source.getName());
             startStopCoords.put("latitude", source.getLatitude());
             startStopCoords.put("longitude", source.getLongitude());
-            if (source.getAddress() != null && !source.getAddress().isEmpty()) {
-                startStopCoords.put("address", source.getAddress());
-            }
             response.put("startStopCoordinates", startStopCoords);
         }
         
@@ -162,9 +159,6 @@ public class GraphController {
             endStopCoords.put("name", destination.getName());
             endStopCoords.put("latitude", destination.getLatitude());
             endStopCoords.put("longitude", destination.getLongitude());
-            if (destination.getAddress() != null && !destination.getAddress().isEmpty()) {
-                endStopCoords.put("address", destination.getAddress());
-            }
             response.put("endStopCoordinates", endStopCoords);
         }
 
@@ -228,9 +222,7 @@ public class GraphController {
             fromCoords.put("name", fromStop.getName());
             fromCoords.put("latitude", fromStop.getLatitude());
             fromCoords.put("longitude", fromStop.getLongitude());
-            if (fromStop.getAddress() != null && !fromStop.getAddress().isEmpty()) {
-                fromCoords.put("address", fromStop.getAddress());
-            }
+
             tripMap.put("fromStopCoordinates", fromCoords);
         } else {
             tripMap.put("fromStopCoordinates", null);
@@ -242,9 +234,6 @@ public class GraphController {
             toCoords.put("name", toStop.getName());
             toCoords.put("latitude", toStop.getLatitude());
             toCoords.put("longitude", toStop.getLongitude());
-            if (toStop.getAddress() != null && !toStop.getAddress().isEmpty()) {
-                toCoords.put("address", toStop.getAddress());
-            }
             tripMap.put("toStopCoordinates", toCoords);
         } else {
             tripMap.put("toStopCoordinates", null);
