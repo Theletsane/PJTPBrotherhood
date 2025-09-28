@@ -25,8 +25,7 @@ public class GATrip extends Trip {
     public GAStop getDepartureGAStop() { return (GAStop) getDepartureStop(); }
     public GAStop getDestinationGAStop() { return (GAStop) getDestinationStop(); }
 
-    /* 
-    @Override
+    /*    @Override
     public boolean equals(Object o){
         if (this == o) return true;
         if (!(o instanceof Trip)) return false;
@@ -39,17 +38,6 @@ public class GATrip extends Trip {
             (this.getDestinationGAStop().equals(other.getDestinationGAStop()))
                 );
     }*/
-
-    @Override
-    public String toString() {
-        return String.format("Golden Arrows Trip [ %s -> %s, route='%s', id=%s, dep=%s]",
-                getDepartureStop().getName(),
-                getDestinationStop().getName(),
-                routeName,
-                tripID,
-                getDepartureTime());
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;

@@ -38,6 +38,9 @@ public final class MyCitiBusGraph{
 
     private static String stopFileName ="";
     private static String MyCitiRoute = "" ;
+    LocalTime serviceStartTime = LocalTime.of(6, 30);
+    LocalTime serviceEndTime = LocalTime.of(15, 30);
+    Trip.DayType serviceDayType = Trip.DayType.WEEKDAY;
 
 
         // Metrics
@@ -122,11 +125,11 @@ public final class MyCitiBusGraph{
                 String[] parts = line.split(",", -1);
                 String routeCode = parts[0];
                 String routeFullName = parts[1];
-                Path dir1RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
-                Path dir2RoutePath = Paths.get("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir2.csv");
+                //Path dir1RoutePath = Paths.get("src/main/resources/CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv");
+                //Path dir2RoutePath = Paths.get("CapeTownTransitData/myciti-bus-schedules/" + routeCode + "-dir2.csv");
                 //InputStream inputStream = MyCitiBusGraph.class.getClassLoader().getResourceAsStream("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv");
-                getTripsInRoute(dir1RoutePath, routeFullName);
-                getTripsInRoute(dir2RoutePath, routeFullName);
+                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir1.csv", routeFullName);
+                getTripsInRoute("CapeTownTransitData/MyCiti_Data/myciti-bus-schedules/" + routeCode + "-dir2.csv", routeFullName);
 
                 }
             }
@@ -140,12 +143,12 @@ public final class MyCitiBusGraph{
     }
 
 
-    public void getTripsInRoute(Path routePath, String routeFullName) {
+    public void getTripsInRoute(String routePath, String routeFullName) {
         int missingStops = 0;
         //System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
-        if (Files.exists(routePath)) {
+        if (MyFileLoader.resourceExists(MyCitiRoute)) {
             SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
-            try (BufferedReader br = Files.newBufferedReader(routePath)) {
+            try (BufferedReader br =MyFileLoader.getBufferedReaderFromResource(MyCitiRoute)) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
                     LOGGER.log(Level.WARNING, "Empty route file: {0}", routePath);
@@ -208,8 +211,13 @@ public final class MyCitiBusGraph{
                             trip.setDuration(duration);
                             trip.setRouteName(routeId);
                             trip.setTripID(routeId + "-T" + tripCounter++);
+                            if ((trip.getDayType() == serviceDayType) && (!trip.getDepartureTime().isBefore(serviceStartTime)) && (!trip.getDepartureTime().isAfter(serviceEndTime))) {
+                                this.totalTrips.add(trip); // -------------------------------------------------------------- LOG
 
-                            this.totalTrips.add(trip);
+                            }
+
+                            
+
                             from.addMyCitiTrip(trip); // add outgoing trip to 'from' stop
                         } catch (Exception ex) {
                             LOGGER.log(Level.FINE, "Skipping malformed time values at route {0}, line: {1}", new Object[]{routeId, line});

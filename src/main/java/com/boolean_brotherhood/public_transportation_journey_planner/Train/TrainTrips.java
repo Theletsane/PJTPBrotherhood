@@ -1,12 +1,11 @@
 package com.boolean_brotherhood.public_transportation_journey_planner.Train;
 
-import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
-import com.boolean_brotherhood.public_transportation_journey_planner.GA_Bus.GATrip;
-
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import com.boolean_brotherhood.public_transportation_journey_planner.Trip;
 
 /**
  * Train-specific Trip.
