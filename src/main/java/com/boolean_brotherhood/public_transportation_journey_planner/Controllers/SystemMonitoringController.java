@@ -235,25 +235,25 @@ public class SystemMonitoringController {
         }
     }
 
-/**
- * Get performance metrics from PerformanceMetricsRegistry
- */
-@GetMapping("/performance")
-public ResponseEntity<Map<String, Object>> getPerformanceMetrics() {
-    SystemLog.log_endpoint("/api/monitor/performance");
-    try {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("overview", PerformanceMetricsRegistry.getOverview());
-        payload.put("endpoints", PerformanceMetricsRegistry.getEndpointSummaries());
-        
-        List<Map<String, Object>> samples = PerformanceMetricsRegistry.getRecentSamples();
-        payload.put("recentSamples", samples.stream().limit(25).collect(Collectors.toList()));
-        payload.put("timestamp", java.time.LocalDateTime.now().toString());
-        
-        return ResponseEntity.ok(payload);
-    } catch (Exception e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Performance metrics retrieval failed: " + e.getMessage()));
+    /**
+     * Get performance metrics from PerformanceMetricsRegistry
+     */
+    @GetMapping("/performance")
+    public ResponseEntity<Map<String, Object>> getPerformanceMetrics() {
+        SystemLog.log_endpoint("/api/monitor/performance");
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("overview", PerformanceMetricsRegistry.getOverview());
+            payload.put("endpoints", PerformanceMetricsRegistry.getEndpointSummaries());
+            
+            List<Map<String, Object>> samples = PerformanceMetricsRegistry.getRecentSamples();
+            payload.put("recentSamples", samples.stream().limit(25).collect(Collectors.toList()));
+            payload.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            return ResponseEntity.ok(payload);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Performance metrics retrieval failed: " + e.getMessage()));
+        }
     }
-}
 }
