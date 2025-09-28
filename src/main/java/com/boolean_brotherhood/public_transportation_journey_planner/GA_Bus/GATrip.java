@@ -25,6 +25,7 @@ public class GATrip extends Trip {
     public GAStop getDepartureGAStop() { return (GAStop) getDepartureStop(); }
     public GAStop getDestinationGAStop() { return (GAStop) getDestinationStop(); }
 
+    /* 
     @Override
     public boolean equals(Object o){
         if (this == o) return true;
@@ -37,7 +38,7 @@ public class GATrip extends Trip {
             (this.getDepartureGAStop().equals(other.getDepartureGAStop())) &&                 
             (this.getDestinationGAStop().equals(other.getDestinationGAStop()))
                 );
-    }
+    }*/
 
     @Override
     public String toString() {
