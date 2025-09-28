@@ -2,10 +2,6 @@ package com.boolean_brotherhood.public_transportation_journey_planner.MyCitiBus;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -146,9 +142,9 @@ public final class MyCitiBusGraph{
     public void getTripsInRoute(String routePath, String routeFullName) {
         int missingStops = 0;
         //System.out.println(routePath.toString()); // ----------------------------------------------------- LOG
-        if (MyFileLoader.resourceExists(MyCitiRoute)) {
-            SystemLog.add_active_route(routeFullName); // ----------------------------------------------------- LOG
-            try (BufferedReader br =MyFileLoader.getBufferedReaderFromResource(MyCitiRoute)) {
+        if (MyFileLoader.resourceExists(routePath)) {
+            SystemLog.add_active_route(routePath); // ----------------------------------------------------- LOG
+            try (BufferedReader br =MyFileLoader.getBufferedReaderFromResource(routePath)) {
                 String headerLine = br.readLine();
                 if (headerLine == null) {
                     LOGGER.log(Level.WARNING, "Empty route file: {0}", routePath);
